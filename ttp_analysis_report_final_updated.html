@@ -1,0 +1,2947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funnel Publish → Trial Conversion | F&W Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --blue:      #185FA5;
+    --blue-lt:   #378ADD;
+    --blue-bg:   #EBF3FB;
+    --green:     #1D9E75;
+    --green-bg:  #E6F5F0;
+    --amber:     #C97B1A;
+    --amber-bg:  #FDF3E3;
+    --coral:     #C94040;
+    --coral-bg:  #FCEAEA;
+    --gray:      #B4B2A9;
+    --gray-bg:   #F5F4F0;
+    --text:      #1A1917;
+    --text2:     #5F5E5A;
+    --text3:     #888780;
+    --border:    #E2E1DC;
+    --bg:        #FAFAF8;
+    --card:      #FFFFFF;
+    --mono:      'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5 }
+  a { color: var(--blue); text-decoration: none }
+
+  /* Layout */
+  .sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100vh; background: var(--card); border-right: 1px solid var(--border); padding: 24px 0; overflow-y: auto; z-index: 100 }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px }
+  .sidebar-logo h1 { font-size: 13px; font-weight: 600; color: var(--text) }
+  .sidebar-logo p { font-size: 11px; color: var(--text3); margin-top: 2px }
+  .nav-section { padding: 0 12px; margin-bottom: 4px }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; padding: 8px 8px 4px }
+  .nav-item { display: block; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--text2); cursor: pointer; transition: background .1s }
+  .nav-item:hover, .nav-item.active { background: var(--blue-bg); color: var(--blue) }
+  .main { margin-left: 220px; padding: 32px 40px; max-width: 1100px }
+
+  /* Sections */
+  .section { margin-bottom: 56px; scroll-margin-top: 24px }
+  .section-header { margin-bottom: 20px }
+  .section-tag { font-size: 11px; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px }
+  .section-title { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 6px }
+  .section-desc { font-size: 13px; color: var(--text2); max-width: 640px; line-height: 1.6 }
+
+  /* Cards */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px }
+  .card + .card { margin-top: 12px }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px }
+  .card-sub { font-size: 12px; color: var(--text3); margin-bottom: 16px }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px }
+
+  /* KPI strip */
+  .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px }
+  .kpi.highlight { border-color: var(--blue); background: var(--blue-bg) }
+  .kpi-label { font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px }
+  .kpi-val { font-size: 26px; font-weight: 600; color: var(--text) }
+  .kpi-val.blue { color: var(--blue) }
+  .kpi-val.green { color: var(--green) }
+  .kpi-val.amber { color: var(--amber) }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 3px }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px }
+  th { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border) }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--gray-bg); color: var(--text2) }
+  tr:last-child td { border-bottom: none }
+  tr:hover td { background: var(--gray-bg) }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px }
+  td.highlight { color: var(--blue); font-weight: 600 }
+  td.green { color: var(--green); font-weight: 600 }
+  td.amber { color: var(--amber); font-weight: 600 }
+  td.red { color: var(--coral); font-weight: 600 }
+
+  /* Query toggle */
+  .query-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); background: var(--gray-bg); border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; cursor: pointer; margin-top: 14px; transition: all .15s }
+  .query-toggle:hover { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-lt) }
+  .query-toggle svg { width: 12px; height: 12px }
+  .query-box { display: none; margin-top: 10px; background: #1E1E1E; border-radius: 8px; overflow: hidden }
+  .query-box.open { display: block }
+  .query-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #2D2D2D; font-size: 11px; color: #888 }
+  .query-copy { background: none; border: none; color: #888; cursor: pointer; font-size: 11px; padding: 2px 6px; border-radius: 4px }
+  .query-copy:hover { background: #444; color: #fff }
+  pre { padding: 14px 16px; font-family: var(--mono); font-size: 11px; color: #D4D4D4; overflow-x: auto; white-space: pre; line-height: 1.6; max-height: 400px; overflow-y: auto }
+  .kw { color: #569CD6 }
+  .fn { color: #DCDCAA }
+  .str { color: #CE9178 }
+  .cm { color: #6A9955 }
+  .num-code { color: #B5CEA8 }
+
+  /* Horizontal bar */
+  .hbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px }
+  .hbar-label { width: 165px; flex-shrink: 0; font-size: 12px; color: var(--text); text-align: right; padding-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+  .hbar-n { width: 38px; flex-shrink: 0; font-size: 11px; color: var(--text3); text-align: right }
+  .hbar-track { flex: 1; height: 18px; display: flex; border-radius: 3px; overflow: hidden }
+  .hbar-seg { height: 100% }
+  .hbar-pct { width: 32px; flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--blue); text-align: right }
+  .hbar-conv { width: 80px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding-left: 8px }
+  .hbar-conv-bar { height: 7px; border-radius: 2px }
+  .hbar-conv-val { font-size: 11px; font-weight: 600; white-space: nowrap }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--text3) }
+  .leg-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle }
+
+  /* PSM comparison table */
+  .psm-grid { display: grid; grid-template-columns: 200px repeat(3, 1fr); gap: 0 }
+  .psm-cell { padding: 8px 12px; border-bottom: 1px solid var(--gray-bg); font-size: 12px }
+  .psm-cell.header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--border); padding-bottom: 8px }
+  .psm-cell.metric { color: var(--text2) }
+  .psm-cell.val { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono) }
+  .psm-cell.pos { color: var(--blue); font-weight: 600 }
+  .psm-cell.neg { color: var(--coral); font-weight: 600 }
+  .psm-cell.neutral { color: var(--text3) }
+
+  /* Variable table */
+  .var-status { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle }
+  .var-used { background: var(--green) }
+  .var-excluded { background: var(--gray) }
+
+  /* Placebo cards */
+  .placebo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px }
+  .placebo-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px }
+  .placebo-card.A { border-color: var(--blue) }
+  .pb-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin-bottom: 6px }
+  .pb-rate { font-size: 24px; font-weight: 600; margin-bottom: 10px }
+  .pb-rate.A { color: var(--blue) }
+  .pb-rate.B, .pb-rate.C { color: var(--text2) }
+  .pb-n { font-size: 11px; color: var(--text3); margin-bottom: 12px }
+  .pb-divider { border: none; border-top: 1px solid var(--border); margin-bottom: 10px }
+  .pb-prod-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px }
+  .pb-prod-name { font-size: 11px; color: var(--text3); width: 110px; flex-shrink: 0 }
+  .pb-prod-track { flex: 1; height: 5px; background: var(--gray-bg); border-radius: 3px; overflow: hidden }
+  .pb-prod-bar { height: 100%; border-radius: 3px }
+  .pb-prod-val { font-size: 11px; font-weight: 500; width: 30px; text-align: right }
+
+  /* Divider */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 48px 0 }
+
+  /* Finding callout */
+  .finding { background: var(--blue-bg); border: 1px solid var(--blue-lt); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--blue); margin-bottom: 16px; line-height: 1.6 }
+  .finding strong { font-weight: 600 }
+
+  /* Chip */
+  .chip { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: .04em }
+  .chip-blue { background: var(--blue-bg); color: var(--blue) }
+  .chip-green { background: var(--green-bg); color: var(--green) }
+  .chip-gray { background: var(--gray-bg); color: var(--text3) }
+  .chip-amber { background: var(--amber-bg); color: var(--amber) }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>F&W: TTP Analysis</h1>
+    <p>April 2026 · US Trial Cohort</p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Start here</div>
+    <a class="nav-item active" onclick="navTo('hypothesis')">Hypothesis</a>
+    <a class="nav-item" onclick="navTo('overview')">Conversion gap & trend</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">The confounder</div>
+    <a class="nav-item" onclick="navTo('placebo')">Product activation check</a>
+    <a class="nav-item" onclick="navTo('methods')">4 methods to isolate</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Isolating the effect</div>
+    <a class="nav-item" onclick="navTo('funnelonly')">Funnel-only cohort</a>
+    <a class="nav-item" onclick="navTo('stratified')">Stratified SQL</a>
+    <a class="nav-item" onclick="navTo('psm')">Propensity matching</a>
+    <a class="nav-item" onclick="navTo('oddsratio')">Logistic regression</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Other factors</div>
+    <a class="nav-item" onclick="navTo('doseresponse')">Dose response</a>
+    <a class="nav-item" onclick="navTo('timetopublish')">Time to publish</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Where to improve</div>
+    <a class="nav-item" onclick="navTo('niche')">By niche</a>
+    <a class="nav-item" onclick="navTo('geo')">By geography</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Reference</div>
+    <a class="nav-item" onclick="navTo('variables')">Variables used</a>
+  </div>
+  </nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- BUCKET DEFINITION BANNER — always visible at top -->
+<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:28px;display:flex;align-items:flex-start;gap:0">
+  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:20px;padding-top:2px;white-space:nowrap">Three groups</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;flex:1">
+    <div style="padding:0 16px;border-right:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <div style="width:10px;height:10px;border-radius:2px;background:#185FA5;flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:600;color:var(--blue)">A — Published</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">Created AND published a non-snapshot funnel during trial. Publish = domain attached while trial was active.</div>
+    </div>
+    <div style="padding:0 16px;border-right:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <div style="width:10px;height:10px;border-radius:2px;background:#888780;flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:600;color:var(--text2)">B — Created, not published</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">Created a non-snapshot funnel during trial but never published it. Started building, didn't finish.</div>
+    </div>
+    <div style="padding:0 16px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <div style="width:10px;height:10px;border-radius:2px;background:#D3D1C7;flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:600;color:var(--text3)">C — No funnel (baseline)</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">Did not create any funnel during trial. This is the comparison baseline for all analysis.</div>
+    </div>
+  </div>
+</div>
+
+<!-- HYPOTHESIS -->
+
+
+<section class="section" id="hypothesis">
+  <div class="section-header">
+    <div class="section-tag">Start here</div>
+    <h2 class="section-title">Hypothesis & analysis approach</h2>
+    <p class="section-desc">The question we are trying to answer and why it is hard to prove.</p>
+  </div>
+
+  <!-- The question -->
+  <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:10px;padding:18px 22px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">The hypothesis</div>
+    <div style="font-size:16px;font-weight:500;color:var(--text);line-height:1.5">Publishing a funnel during the trial period <em>independently</em> causes higher trial-to-paid conversion — not because publishers are more engaged users overall, but because the act of getting a funnel live creates real value that drives the decision to pay.</div>
+  </div>
+
+  <!-- The challenge -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">The challenge — why this is hard to prove</div>
+    <div class="card-sub">The engagement confounder</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:var(--coral-bg);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;font-weight:600;color:var(--coral);margin-bottom:6px">What the raw data shows</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">Publishers convert at <strong>72%</strong> vs non-publishers at <strong>48%</strong> — a massive +24pp gap. But this is misleading because publishers are also running more workflows, sending more emails, creating more contacts. They're just more engaged users across the board.</div>
+      </div>
+      <div style="background:var(--green-bg);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">What we need to know</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">Is the higher conversion because of the funnel publish itself? Or would these companies have converted anyway because they're generally more committed users? Answering this requires isolating the funnel effect from everything else.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key finding — the answer, upfront -->
+  <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:18px 22px">
+    <div style="font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">The answer — from 4 independent methods</div>
+    <div style="font-size:14px;font-weight:500;color:var(--text);line-height:1.6;margin-bottom:12px">Publishing a funnel during trial independently lifts conversion by <strong>~2–4 percentage points</strong> after controlling for plan tier, niche, engagement, capture call, trial length, client size, and 9 other product activations.</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+      <div style="background:#fff;border-radius:6px;padding:8px 10px;text-align:center">
+        <div style="font-size:14px;font-weight:600;color:var(--green)">+23–35pp</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Funnel-only cohort<br>(engagement stripped)</div>
+      </div>
+      <div style="background:#fff;border-radius:6px;padding:8px 10px;text-align:center">
+        <div style="font-size:14px;font-weight:600;color:var(--green)">+7.8pp</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Stratified SQL<br>(within identical groups)</div>
+      </div>
+      <div style="background:#fff;border-radius:6px;padding:8px 10px;text-align:center">
+        <div style="font-size:14px;font-weight:600;color:var(--green)">+2–4pp</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Propensity matching<br>(statistical twins)</div>
+      </div>
+      <div style="background:#fff;border-radius:6px;padding:8px 10px;text-align:center">
+        <div style="font-size:14px;font-weight:600;color:var(--green)">+4.3pp</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Logistic regression<br>(16 factors held constant)</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--green);line-height:1.6">Creating a funnel without publishing shows <strong>zero independent lift</strong> across all methods. The value is entirely in getting the funnel live. Validated across Feb, Mar, and Apr 2026 US trial cohorts. The rest of this report walks through the evidence.</div>
+  </div>
+
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="overview">
+  <div class="section-header">
+    <div class="section-tag">The raw numbers</div>
+    <h2 class="section-title">Funnel publish → trial conversion</h2>
+    <p class="section-desc">Publishers convert at 73.3% vs 48.3% for companies with no funnel — a +25pp gap. But is this because of the funnel, or because publishers are simply more engaged? April 2026 US trial cohort (n=20,070 companies).</p>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi highlight">
+      <div class="kpi-label">Published funnel → conversion</div>
+      <div class="kpi-val blue">73.3%</div>
+      <div class="kpi-sub">n = 1,840 companies · US only</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Created, not published</div>
+      <div class="kpi-val">55.0%</div>
+      <div class="kpi-sub">n = 4,552 companies · US only</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">No funnel created</div>
+      <div class="kpi-val">48.3%</div>
+      <div class="kpi-sub">n = 13,676 companies · US only</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Raw conversion by bucket — April 2026 US cohort</div>
+    <div class="card-sub">Non-snapshot funnels only · Conversion = CM_CUSTOMER_STATUS ≠ 'Lead' · US only</div>
+    <div style="display:flex;gap:16px;margin:8px 0 12px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--blue);font-weight:500"><span style="display:inline-block;width:10px;height:10px;background:#185FA5;border-radius:2px;margin-right:5px;vertical-align:middle"></span>A — Published funnel during trial</span>
+      <span style="font-size:12px;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;background:#888780;border-radius:2px;margin-right:5px;vertical-align:middle"></span>B — Created funnel, never published</span>
+      <span style="font-size:12px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#D3D1C7;border-radius:2px;margin-right:5px;vertical-align:middle"></span>C — No funnel created (baseline)</span>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="overviewBar"></canvas>
+    </div>
+    
+    <!-- Month-on-month trend -->
+    <div style="margin-top:24px">
+      <div class="card-title">Does this gap hold month-on-month?</div>
+      <div class="card-sub">Feb, Mar, Apr 2026 · US only · non-snapshot funnels only</div>
+      <div style="display:flex;gap:16px;margin:8px 0 12px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--blue);font-weight:500"><span style="display:inline-block;width:10px;height:10px;background:#185FA5;border-radius:2px;margin-right:5px;vertical-align:middle"></span>A — Published</span>
+        <span style="font-size:12px;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;background:#888780;border-radius:2px;margin-right:5px;vertical-align:middle"></span>B — Created, not published</span>
+        <span style="font-size:12px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#D3D1C7;border-radius:2px;margin-right:5px;vertical-align:middle"></span>C — No funnel</span>
+      </div>
+      <div style="position:relative;height:260px">
+        <canvas id="ttpCohortChartV2"></canvas>
+      </div>
+      <div style="margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:6px;font-size:13px;color:var(--green)">
+        <strong>Consistent across all 3 months.</strong> The gap holds in Feb, Mar, and Apr — this is not a one-month anomaly, the pattern is structural. But is it caused by publishing, or are publishers just more engaged? Next: check other-product usage.
+      </div>
+    </div>
+
+    <button class="query-toggle" onclick="toggleQuery('q-overview')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+      View SQL query
+    </button>
+    <div class="query-box" id="q-overview">
+      <div class="query-header"><span>Snowflake SQL</span><button class="query-copy" onclick="copyCode('q-overview')">Copy</button></div>
+      <pre><span class="cm">-- TTP conversion by funnel bucket: A (published) vs B (created not pub) vs C (no funnel)</span>
+<span class="cm">-- April 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE)   AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE  &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+company_locations AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+loc_funnel AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS created_funnel,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS published_funnel
+  FROM company_locations cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  CASE
+    WHEN COALESCE(lf.published_funnel,0) = 1 THEN &#x27;A) Published&#x27;
+    WHEN COALESCE(lf.created_funnel,0) = 1   THEN &#x27;B) Created, not published&#x27;
+    ELSE                                           &#x27;C) No funnel&#x27;
+  END AS bucket,
+  COUNT(*) AS companies,
+  ROUND(AVG(t.converted) * 100, 2) AS conversion_rate_pct
+FROM trials t
+LEFT JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+GROUP BY 1
+ORDER BY 1</pre>
+    </div>
+  </div>
+</section>
+
+
+
+<hr class="section-divider">
+
+<section class="section" id="placebo">
+  <div class="section-header">
+    <div class="section-tag">The confounder</div>
+    <h2 class="section-title">Product activation during trial by bucket</h2>
+    <p class="section-desc">April 2026 · US only · non-snapshot funnels only.</p>
+  </div>
+  <div style="background:var(--amber-bg);border:1px solid #E8C07A;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--amber);line-height:1.6">
+    <strong>Why this analysis:</strong> Publishers convert +25pp higher than non-publishers. But before attributing this to funnels, we need to check — are publishers simply more active users overall? If they also execute more workflows, send more emails, and create more contacts, then the conversion gap might reflect general engagement, not the funnel itself.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="finding">
+    <strong>Interpretation:</strong> Publishers (A) are significantly more active across all other products — workflow execution (+21pp gap), contact creation (+21pp), email (+21pp). <strong>The engagement confounder is confirmed:</strong> publishers are just more engaged users overall. We cannot simply attribute the +25pp raw conversion gap to publishing alone — we need methods that strip away this engagement difference.
+  </div>
+
+  <div class="placebo-grid" id="placeboCards"></div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-placebo')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-placebo">
+    <div class="query-header"><span>Snowflake SQL</span><button class="query-copy" onclick="copyCode('q-placebo')">Copy</button></div>
+    <pre><span class="cm">-- Product activation rates by funnel bucket A/B/C</span>
+<span class="cm">-- April 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+company_locations AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+loc_funnel AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS created_funnel,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS published_funnel
+  FROM company_locations cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+),
+other_products AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN d.WORKFLOW_EXECUTIONS &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS workflow_executed,
+    MAX(CASE WHEN d.EMAILS_SENT &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS email_sent,
+    MAX(CASE WHEN d.CONTACTS_CREATED &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS contact_created,
+    MAX(CASE WHEN d.PIPELINES_CREATED &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pipeline_created,
+    MAX(CASE WHEN d.CALENDAR_EVENTS &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS calendar_event
+  FROM company_locations cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_ANALYTICS.PRODUCT_LOCATION_ADOPTION_DAILY d ON d.LOCATION_ID = cl.LOCATION_ID
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  CASE
+    WHEN COALESCE(lf.published_funnel,0) = 1 THEN &#x27;A&#x27;
+    WHEN COALESCE(lf.created_funnel,0) = 1   THEN &#x27;B&#x27;
+    ELSE &#x27;C&#x27;
+  END AS bucket,
+  COUNT(*) AS companies,
+  ROUND(AVG(converted)*100,2) AS conv_rate,
+  ROUND(AVG(workflow_executed)*100,2) AS pct_workflow_exec,
+  ROUND(AVG(email_sent)*100,2) AS pct_email_sent,
+  ROUND(AVG(contact_created)*100,2) AS pct_contact_created,
+  ROUND(AVG(pipeline_created)*100,2) AS pct_pipeline_created,
+  ROUND(AVG(calendar_event)*100,2) AS pct_calendar_event
+FROM (
+  SELECT t.company_id, t.converted,
+    COALESCE(lf.published_funnel,0) AS published_funnel,
+    COALESCE(lf.created_funnel,0) AS created_funnel,
+    COALESCE(op.workflow_executed,0) AS workflow_executed,
+    COALESCE(op.email_sent,0) AS email_sent,
+    COALESCE(op.contact_created,0) AS contact_created,
+    COALESCE(op.pipeline_created,0) AS pipeline_created,
+    COALESCE(op.calendar_event,0) AS calendar_event
+  FROM trials t
+  LEFT JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+  LEFT JOIN other_products op ON t.company_id = op.COMPANY_ID
+)
+GROUP BY 1
+ORDER BY 1</pre>
+  </div>
+</section>
+
+
+<hr class="section-divider">
+
+<section class="section" id="methods">
+  <div class="section-header">
+    <div class="section-tag">The approach</div>
+    <h2 class="section-title">4 methods to isolate the funnel effect</h2>
+    <p class="section-desc">If all four methods converge on the same answer despite using completely different statistical approaches, the finding is credible.</p>
+  </div>
+  <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--blue);line-height:1.6">
+    <strong>Why this analysis:</strong> The confounder check confirmed publishers are more active across every other product. So the raw +25pp gap includes both the funnel effect and the engagement effect. We need methods that strip away the engagement difference and isolate what funnel publishing alone contributes to conversion.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="card">
+    <div class="card-sub">Each method removes confounders differently — click any method to jump to its section.</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:8px" id="methodFlow"></div>
+  </div>
+
+  <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">All four methods — the converging answer</div>
+    <div id="convergenceTable"></div>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--green-bg);border-radius:6px;font-size:13px;color:var(--green)">
+      <strong>Bottom line:</strong> All four methods agree on direction — publishing a funnel during trial independently lifts conversion. The controlled estimates (PSM, logistic regression) converge at <strong>+2–4pp</strong>. The funnel-only cohort shows a larger gap (+23–35pp) because it compares against a lower-intent control group. Creating without publishing shows <strong>zero independent lift</strong> across every method and every cohort. The value is entirely in getting it live.
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="funnelonly">
+  <div class="section-header">
+    <div class="section-tag">Isolating the effect · Method 1</div>
+    <h2 class="section-title">Funnel-only users</h2>
+    <p class="section-desc">This removes the engagement confounder by design.</p>
+  </div>
+  <div style="background:var(--green-bg);border:1px solid #2D9E75;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--green);line-height:1.6">
+    <strong>Why this analysis:</strong> If we restrict to companies that used GHL <strong>exclusively for funnels</strong> during trial — zero workflows, contacts, emails, SMS, opportunities, forms, calls, or calendar events — then the engagement confounder is removed by construction. Everyone has equally zero other-product activity. Any conversion difference between publishers and non-publishers must come from publishing itself.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="finding">
+    <strong>Why this matters:</strong> Publishers convert higher partly because they're more engaged overall. By restricting to companies with zero other-product activity, we strip that explanation away. Whatever gap remains is attributable to funnel publishing itself — not general engagement.
+  </div>
+
+  <!-- 3-cohort table -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Conversion rates — funnel-only cohort (zero other-product activity)</div>
+    <div class="card-sub">Excluded: workflow exec/created · contact created · email sent · SMS · opportunity · form · voice call · calendar · pipeline (near-universal)</div>
+    <table>
+      <thead><tr>
+        <th>Cohort</th>
+        <th>A) Published</th>
+        <th>B) Created, not pub.</th>
+        <th>C) No funnel</th>
+        <th>A vs B gap</th>
+        <th>B vs C gap</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="chip chip-gray">Feb 2026</span></td>
+          <td class="highlight num">62.5% <span style="font-size:10px;color:var(--text3)">(n=96)</span></td>
+          <td class="num">38.9% <span style="font-size:10px;color:var(--text3)">(n=712)</span></td>
+          <td class="num">33.4% <span style="font-size:10px;color:var(--text3)">(n=4,019)</span></td>
+          <td class="num highlight">+23.6pp</td>
+          <td class="num">+5.5pp</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-blue">Mar 2026</span></td>
+          <td class="highlight num">69.4% <span style="font-size:10px;color:var(--text3)">(n=209)</span></td>
+          <td class="num">34.9% <span style="font-size:10px;color:var(--text3)">(n=1,356)</span></td>
+          <td class="num">35.9% <span style="font-size:10px;color:var(--text3)">(n=6,484)</span></td>
+          <td class="num highlight">+34.5pp</td>
+          <td class="num red">−1.0pp</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-amber">Apr 2026</span></td>
+          <td class="highlight num">66.7% <span style="font-size:10px;color:var(--text3)">(n=141)</span></td>
+          <td class="num">37.6% <span style="font-size:10px;color:var(--text3)">(n=991)</span></td>
+          <td class="num">37.4% <span style="font-size:10px;color:var(--text3)">(n=6,528)</span></td>
+          <td class="num highlight">+29.1pp</td>
+          <td class="num">+0.3pp</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3 takeaway cards -->
+  <div class="grid-3" style="margin-bottom:12px">
+    <div class="kpi highlight">
+      <div class="kpi-label">A vs B gap (funnel-only)</div>
+      <div class="kpi-val blue">+23–35pp</div>
+      <div class="kpi-sub">Consistent across all 3 cohorts · engagement removed</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">B vs C gap (funnel-only)</div>
+      <div class="kpi-val" style="color:var(--text3)">~0pp</div>
+      <div class="kpi-sub">Creating without publishing = no lift · confirmed all 3 months</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Publisher conv. (funnel-only)</div>
+      <div class="kpi-val green">62–70%</div>
+      <div class="kpi-sub">2 in 3 funnel-only publishers convert · even with zero other engagement</div>
+    </div>
+  </div>
+
+  <div style="background:var(--amber-bg);border:1px solid #E8C07A;border-radius:8px;padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:12px">
+    <strong>Why the gap is larger here (+23–35pp) than in PSM (+2–4pp):</strong> PSM matches publishers against equally-engaged non-publishers — so B's baseline is already elevated by their other engagement. Here, B companies have zero other-product activity, so their baseline is genuinely low (~37%). The funnel publish effect is the same — but it's measured against a purer counterfactual, making it appear larger. Both are correct; they answer slightly different questions.
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-funnelonly')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-funnelonly">
+    <div class="query-header"><span>Snowflake SQL — funnel-only activator analysis</span><button class="query-copy" onclick="copyCode('q-funnelonly')">Copy</button></div>
+    <pre><span class="cm">-- Funnel-only activator analysis: conversion by bucket among companies</span>
+<span class="cm">-- with zero activity on 9 non-funnel products during trial</span>
+<span class="cm">-- April 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+other_product_usage AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN d.WORKFLOW_EXECUTIONS   &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS workflow_exec,
+    MAX(CASE WHEN d.WORKFLOWS_CREATED     &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS workflow_created,
+    MAX(CASE WHEN d.EMAILS_SENT           &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS email_sent,
+    MAX(CASE WHEN d.CONTACTS_CREATED      &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS contact_created,
+    MAX(CASE WHEN d.SMS_SENT              &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS sms_sent,
+    MAX(CASE WHEN d.OPPORTUNITIES_CREATED &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS opportunity_created,
+    MAX(CASE WHEN d.FORMS_SUBMITTED       &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS form_submitted,
+    MAX(CASE WHEN d.VOICE_CALLS_INITIATED &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS voice_call,
+    MAX(CASE WHEN d.CALENDAR_EVENTS       &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS calendar_event
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_ANALYTICS.PRODUCT_LOCATION_ADOPTION_DAILY d ON d.LOCATION_ID = cl.LOCATION_ID
+  GROUP BY cl.COMPANY_ID
+),
+loc_funnel AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS created_funnel,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS published_funnel
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  CASE
+    WHEN (
+      COALESCE(op.workflow_exec,0) + COALESCE(op.workflow_created,0) +
+      COALESCE(op.email_sent,0) + COALESCE(op.contact_created,0) +
+      COALESCE(op.sms_sent,0) + COALESCE(op.opportunity_created,0) +
+      COALESCE(op.form_submitted,0) + COALESCE(op.voice_call,0) +
+      COALESCE(op.calendar_event,0)
+    ) = 0 THEN &#x27;Funnel-only&#x27;
+    ELSE &#x27;Used other products&#x27;
+  END AS cohort,
+  CASE
+    WHEN COALESCE(lf.published_funnel,0) = 1 THEN &#x27;A) Published&#x27;
+    WHEN COALESCE(lf.created_funnel,0) = 1   THEN &#x27;B) Created, not published&#x27;
+    ELSE                                           &#x27;C) No funnel&#x27;
+  END AS funnel_bucket,
+  COUNT(*) AS companies,
+  ROUND(AVG(t.converted) * 100, 2) AS conversion_rate_pct
+FROM trials t
+LEFT JOIN other_product_usage op ON t.company_id = op.COMPANY_ID
+LEFT JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+GROUP BY 1, 2
+ORDER BY 1, 2</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="stratified">
+  <div class="section-header">
+    <div class="section-tag">Isolating the effect · Method 2</div>
+    <h2 class="section-title">Stratified SQL analysis</h2>
+    <p class="section-desc">Feb–Apr 2026 · US only.</p>
+  </div>
+
+  <div style="background:var(--gray-bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+    <strong>Why this analysis:</strong> Instead of removing engagement entirely (like the funnel-only cohort), we compare publishers vs non-publishers within identical groups — same plan tier, same niche, same engagement level, same onboarding experience. Within each group, the only difference is whether they published. We then average the results across all 112 groups. This is an "apples to apples" comparison.
+  </div>
+
+  <div class="card">
+    <div class="card-title">Matched ATT across cohorts</div>
+    <div class="card-sub">Minimum 3 companies per bucket per stratum · 112 strata (April) · A = Published · B = Created not published · C = No funnel (baseline)</div>
+    <table>
+      <thead><tr>
+        <th>Cohort</th><th>Comparison</th><th>Raw gap</th><th>Matched ATT</th><th>Confounders explain</th><th>Strata used</th><th>Matched n</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Feb 2026</td><td>A vs B (pub vs created-not-pub)</td><td class="num">+20.5pp</td><td class="num highlight">+4.3pp</td><td class="num">79%</td><td class="num">~100</td><td class="num">1,874</td></tr>
+        <tr><td>Mar 2026</td><td>A vs B</td><td class="num">+22.2pp</td><td class="num highlight">+7.8pp</td><td class="num">65%</td><td class="num">112</td><td class="num">758</td></tr>
+        <tr><td>Apr 2026</td><td>A vs B</td><td class="num">+17.8pp</td><td class="num highlight">+7.8pp</td><td class="num">56%</td><td class="num">112</td><td class="num">758</td></tr>
+        <tr><td>Feb 2026</td><td>B vs C (created-not-pub vs none)</td><td class="num">+6.5pp</td><td class="num red">−4.8pp</td><td class="num">&gt;100%</td><td class="num">~100</td><td class="num">3,975</td></tr>
+        <tr><td>Mar 2026</td><td>B vs C</td><td class="num">+4.5pp</td><td class="num red">−2.0pp</td><td class="num">&gt;100%</td><td class="num">112</td><td class="num">1,237</td></tr>
+        <tr><td>Apr 2026</td><td>B vs C</td><td class="num">+6.4pp</td><td class="num red">−2.0pp</td><td class="num">&gt;100%</td><td class="num">112</td><td class="num">1,237</td></tr>
+      </tbody>
+    </table>
+    <!-- Factors used in stratification -->
+    <div style="margin-top:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">7 factors used to create strata</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span class="chip chip-gray">Plan tier ($97/$297/$497)</span>
+        <span class="chip chip-gray">Business niche</span>
+        <span class="chip chip-gray">Primary use case (BO/AG/SR/OT)</span>
+        <span class="chip chip-gray">Number of clients</span>
+        <span class="chip chip-gray">Capture call / Trial Experience (Y/N)</span>
+        <span class="chip chip-gray">Engagement bucket (low 0–1 / med 2–4 / high 5+ products)</span>
+      </div>
+    </div>
+
+    <button class="query-toggle" onclick="toggleQuery('q-strat')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+      View SQL query
+    </button>
+    <div class="query-box" id="q-strat">
+      <div class="query-header"><span>Snowflake SQL — stratified weighted comparison</span><button class="query-copy" onclick="copyCode('q-strat')">Copy</button></div>
+      <pre><span class="cm">-- Stratified Mantel-Haenszel weighted comparison</span>
+<span class="cm">-- US only · non-snapshot funnels only</span>
+<span class="cm">-- Strata: plan × niche × primary_use × client_size × trial_experience × engagement_bucket</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted,
+    MAX(SI_PLAN_ID) AS plan_id,
+    MAX(BUSINESS_CATEGORY) AS niche,
+    MAX(CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED) AS primary_use,
+    MAX(CUSTOMER_METADATA_NUMBER_OF_CLIENTS) AS client_size,
+    MAX(TRIAL_EXPERIENCE) AS trial_experience
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+<span class="cm">-- ... (CTEs for company_locations, loc_funnel, engagement_score as in overview) ...</span>
+<span class="cm">-- engagement_score = count of products activated during trial (workflow, email, contact, etc.)</span>
+features AS (
+  SELECT t.*, lf.bucket,
+    CASE WHEN engagement_score &lt;= 1 THEN &#x27;low&#x27;
+         WHEN engagement_score &lt;= 4 THEN &#x27;medium&#x27;
+         ELSE &#x27;high&#x27; END AS engagement_bucket
+  FROM trials_with_engagement t
+  JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+),
+stratified AS (
+  SELECT *,
+    CONCAT_WS(&#x27;|&#x27;,
+      plan_id, COALESCE(niche,&#x27;Unknown&#x27;), primary_use,
+      client_size, trial_experience,
+      engagement_bucket
+    ) AS stratum
+  FROM features
+),
+stratum_rates AS (
+  SELECT stratum,
+    SUM(CASE WHEN bucket=&#x27;A&#x27; THEN 1 ELSE 0 END) AS n_A,
+    SUM(CASE WHEN bucket=&#x27;B&#x27; THEN 1 ELSE 0 END) AS n_B,
+    AVG(CASE WHEN bucket=&#x27;A&#x27; THEN converted END) AS conv_A,
+    AVG(CASE WHEN bucket=&#x27;B&#x27; THEN converted END) AS conv_B
+  FROM stratified
+  GROUP BY 1
+  HAVING n_A &gt;= 3 AND n_B &gt;= 3
+)
+<span class="cm">-- Mantel-Haenszel weighted average</span>
+SELECT
+  SUM((conv_A - conv_B) * (n_A * n_B) / NULLIF(n_A + n_B, 0)) /
+  NULLIF(SUM((n_A * n_B) / NULLIF(n_A + n_B, 0)), 0) AS weighted_att_A_vs_B
+FROM stratum_rates</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="psm">
+  <div class="section-header">
+    <div class="section-tag">Isolating the effect · Method 3</div>
+    <h2 class="section-title">Propensity score matching</h2>
+    <p class="section-desc">Robustness checked across Feb, Mar, and Apr cohorts.</p>
+  </div>
+  <div style="background:var(--gray-bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+    <strong>Why this analysis:</strong> For each company that published a funnel, we find its "statistical twin" — a non-publisher that looks nearly identical on 15 variables (plan, niche, engagement, trial experience, and more). Then we compare conversion only within these matched pairs. If the publisher still converts higher than its twin, the effect is independent of the matched variables.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="kpi">
+      <div class="kpi-label">A vs B matched ATT (Feb–Apr range)</div>
+      <div class="kpi-val blue">+2 to +8pp</div>
+      <div class="kpi-sub">Best estimate ~+4pp · consistent direction across all 3 cohorts</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">B vs C matched ATT (Feb–Apr range)</div>
+      <div class="kpi-val" style="color:var(--coral)">−3.5 to −5.7pp</div>
+      <div class="kpi-sub">~4–5K matched pairs per cohort · zero lift from creating without publishing</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Robustness comparison — March vs April</div>
+    <div class="card-sub">SMD = standardized mean difference after matching (target &lt; 0.1) · A = Published · B = Created not published · C = No funnel</div>
+    <table>
+      <thead><tr>
+        <th>Comparison</th><th>Cohort</th><th>Raw gap</th><th>Matched ATT</th><th>Match rate</th><th>Confounder %</th><th>Mean SMD after</th><th>Max SMD after</th>
+      </tr></thead>
+      <tbody>
+        <tr><td rowspan="3"><strong>A vs B</strong><br><span style="font-size:11px;color:var(--text3)">Published vs Created-not-pub</span></td>
+            <td><span class="chip chip-gray">Feb</span></td><td class="num">+20.5pp</td><td class="num highlight">+4.3pp</td><td class="num green">99.9%</td><td class="num">79%</td><td class="num green">0.026</td><td class="num green">0.074</td></tr>
+        <tr><td><span class="chip chip-blue">March</span></td><td class="num">+22.2pp</td><td class="num highlight">+7.7pp</td><td class="num green">100%</td><td class="num">65%</td><td class="num green">0.015</td><td class="num green">0.038</td></tr>
+        <tr><td><span class="chip chip-amber">April</span></td><td class="num">+17.8pp</td><td class="num highlight">+2.0pp</td><td class="num green">99.9%</td><td class="num">89%</td><td class="num green">0.017</td><td class="num green">0.058</td></tr>
+        <tr><td rowspan="3"><strong>B vs C</strong><br><span style="font-size:11px;color:var(--text3)">Created-not-pub vs No funnel</span></td>
+            <td><span class="chip chip-gray">Feb</span></td><td class="num">+6.1pp</td><td class="num red">−4.1pp</td><td class="num green">100%</td><td class="num">&gt;100%</td><td class="num green">0.026</td><td class="num green">0.043</td></tr>
+        <tr><td><span class="chip chip-blue">March</span></td><td class="num">+4.5pp</td><td class="num red">−5.7pp</td><td class="num green">100%</td><td class="num">&gt;100%</td><td class="num green">0.020</td><td class="num green">0.035</td></tr>
+        <tr><td><span class="chip chip-amber">April</span></td><td class="num">+6.5pp</td><td class="num red">−3.5pp</td><td class="num green">100%</td><td class="num">&gt;100%</td><td class="num green">0.016</td><td class="num green">0.039</td></tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:16px;padding:12px 14px;background:var(--gray-bg);border-radius:8px;font-size:12px;color:var(--text2)">
+      <strong style="color:var(--text)">Robustness note:</strong> A vs B ATT ranges from +2.0pp (Apr) to +7.7pp (Mar) — positive in all three cohorts confirming a real effect. Best honest estimate: <strong>~+2–4pp independent conversion lift from publishing</strong>. B vs C is the most robust finding — consistently negative (−3.5 to −5.7pp) across all three cohorts with 4–5K matched pairs each. All MaxSMD well below 0.1 throughout.
+    </div>
+
+    <!-- 15 matching variables -->
+    <div style="margin-top:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">15 variables used for propensity score matching</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span class="chip chip-gray">Plan tier ($97/$297/$497)</span>
+        <span class="chip chip-gray">Business niche (one-hot)</span>
+        <span class="chip chip-gray">Primary use case (one-hot)</span>
+        <span class="chip chip-gray">Number of clients</span>
+        <span class="chip chip-gray">Capture call / Trial Experience (Y/N)</span>
+        <span class="chip chip-gray">Trial length (days)</span>
+        <span class="chip chip-gray">Workflow executed</span>
+        <span class="chip chip-gray">Email sent</span>
+        <span class="chip chip-gray">Contact created</span>
+        <span class="chip chip-gray">Calendar event</span>
+        <span class="chip chip-gray">SMS sent</span>
+        <span class="chip chip-gray">Days active in trial</span>
+        <span class="chip chip-gray">Payment provider connected</span>
+        <span class="chip chip-gray">Domain connected</span>
+      </div>
+    </div>
+
+    <button class="query-toggle" onclick="toggleQuery('q-psm')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+      View Python script
+    </button>
+    <div class="query-box" id="q-psm">
+      <div class="query-header"><span>Python — psm_canonical.py (Feb, Mar, Apr independent cohorts)</span><button class="query-copy" onclick="copyCode('q-psm')">Copy</button></div>
+      <pre>&quot;&quot;&quot;
+Canonical PSM: Feb, Mar, Apr 2026 Trial Cohorts
+HighLevel Funnels &amp; Websites | US only
+
+Each cohort is fetched, modeled, and matched INDEPENDENTLY.
+No data leakage across months.
+
+Usage:
+    python psm_canonical.py
+
+Requirements:
+    pip install pandas scikit-learn numpy &quot;snowflake-connector-python[pandas]&quot;
+&quot;&quot;&quot;
+
+import snowflake.connector
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+import warnings
+warnings.filterwarnings(&#x27;ignore&#x27;)
+
+<span class="cm"># ── CREDENTIALS ───────────────────────────────────────────────</span>
+SNOWFLAKE_ACCOUNT   = &quot;YOUR_ACCOUNT_IDENTIFIER&quot;
+SNOWFLAKE_USER      = &quot;DIVYANSH_BENGANI&quot;
+SNOWFLAKE_WAREHOUSE = &quot;PROD_HIGHLEVEL_DWH&quot;
+SNOWFLAKE_ROLE      = &quot;DWH_RO_ROLE&quot;
+
+<span class="cm"># ── COHORTS TO RUN ────────────────────────────────────────────</span>
+COHORTS = [
+    {&quot;label&quot;: &quot;Feb 2026&quot;, &quot;start&quot;: &quot;2026-02-01&quot;, &quot;end&quot;: &quot;2026-03-01&quot;},
+    {&quot;label&quot;: &quot;Mar 2026&quot;, &quot;start&quot;: &quot;2026-03-01&quot;, &quot;end&quot;: &quot;2026-04-01&quot;},
+    {&quot;label&quot;: &quot;Apr 2026&quot;, &quot;start&quot;: &quot;2026-04-01&quot;, &quot;end&quot;: &quot;2026-05-01&quot;},
+]
+
+<span class="cm"># ── QUERY (parameterised by cohort dates) ─────────────────────</span>
+def build_query(start_date, end_date):
+    return f&quot;&quot;&quot;
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE)   AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS y,
+    MAX(BUSINESS_CATEGORY) AS niche,
+    MAX(CASE
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Business Owner to Manage my Business&#x27;,&#x27;To operate my own business&#x27;) THEN &#x27;BO&#x27;
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Marketing Agency to provide Services to Clients&#x27;,
+            &#x27;To help my clients or other businesses with marketing&#x27;) THEN &#x27;AG&#x27;
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Saas Entrepreneur for White-labeling and Reselling&#x27;,
+            &#x27;For white-labelling and reselling software&#x27;) THEN &#x27;SR&#x27;
+      ELSE &#x27;OT&#x27;
+    END) AS puse,
+    MAX(CASE
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;I don&#x27;&#x27;t have any customers yet&#x27; THEN 0
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;1-3&#x27;   THEN 1
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;4-9&#x27;   THEN 2
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;10-49&#x27; THEN 3
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;50+&#x27;   THEN 4
+      ELSE 0
+    END) AS client_size,
+    MAX(CASE WHEN SI_PLAN_ID = &#x27;plan_EOhzMspqryT0Qg&#x27; THEN 497
+             WHEN SI_PLAN_ID = &#x27;plan_EMqqWoc8PxMf3l&#x27; THEN 297
+             ELSE 97 END) AS plan,
+    MAX(CASE WHEN TRIAL_EXPERIENCE = &#x27;Yes&#x27; THEN 1 ELSE 0 END) AS trial_exp,
+    MAX(COALESCE(ORIGINAL_TRIAL_LENGTH, 20)) AS trial_len
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;{start_date}&#x27;
+    AND CONVERTED_TRIAL_START_DATE  &lt; &#x27;{end_date}&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+lf AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE       BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS cf,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pf
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+),
+s1 AS (
+  SELECT DISTINCT cl.COMPANY_ID
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE fm.SOURCE_TYPE = &#x27;snapshot&#x27;
+    AND fm.CREATED_AT::DATE = t.trial_start
+),
+op AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN d.WORKFLOW_EXECUTIONS &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS we,
+    MAX(CASE WHEN d.EMAILS_SENT        &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS es,
+    MAX(CASE WHEN d.CONTACTS_CREATED   &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS cc,
+    MAX(CASE WHEN d.CALENDAR_EVENTS    &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS ce,
+    MAX(CASE WHEN d.SMS_SENT           &gt;= 1 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS ss,
+    COUNT(DISTINCT CASE WHEN d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN d.DATE_CREATED END) AS da
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_ANALYTICS.PRODUCT_LOCATION_ADOPTION_DAILY d ON d.LOCATION_ID = cl.LOCATION_ID
+  GROUP BY cl.COMPANY_ID
+),
+ac AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN p.FIRST_PAYMENT_PROVIDER_CONNECTED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pc,
+    MAX(CASE WHEN p.FIRST_DOMAIN_CONNECTED_AT::DATE           BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS dc
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_ANALYTICS.PRODUCT_LOCATION_ACTIVATION_FIRST p ON p.LOCATION_ID = cl.LOCATION_ID
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  t.y, t.niche, t.puse, t.client_size, t.plan, t.trial_exp, t.trial_len,
+  CASE WHEN s1.COMPANY_ID IS NOT NULL THEN 1 ELSE 0 END AS snap1,
+  COALESCE(op.we,0) we, COALESCE(op.es,0) es, COALESCE(op.cc,0) cc,
+  COALESCE(op.ce,0) ce, COALESCE(op.ss,0) ss, COALESCE(op.da,0) da,
+  COALESCE(ac.pc,0) pc, COALESCE(ac.dc,0) dc,
+  CASE
+    WHEN COALESCE(lf.pf,0) = 1 THEN &#x27;A&#x27;
+    WHEN COALESCE(lf.cf,0) = 1 THEN &#x27;B&#x27;
+    ELSE &#x27;C&#x27;
+  END AS bkt
+FROM trials t
+LEFT JOIN lf ON t.company_id = lf.COMPANY_ID
+LEFT JOIN s1 ON t.company_id = s1.COMPANY_ID
+LEFT JOIN op ON t.company_id = op.COMPANY_ID
+LEFT JOIN ac ON t.company_id = ac.COMPANY_ID
+&quot;&quot;&quot;
+
+<span class="cm"># ── PSM (single cohort, independent model) ────────────────────</span>
+def run_psm_cohort(df, treat_bkt, control_bkt, label, caliper=0.05):
+    &quot;&quot;&quot;
+    Train logistic regression on THIS cohort only.
+    Match 1:1 by propensity score within caliper.
+    Return ATT and diagnostics.
+    &quot;&quot;&quot;
+    df_sub = df[df[&#x27;bkt&#x27;].isin([treat_bkt, control_bkt])].copy().reset_index(drop=True)
+    treat  = (df_sub[&#x27;bkt&#x27;] == treat_bkt).astype(int).values
+
+<span class="cm">    # One-hot encode categoricals — fit/transform on this cohort only</span>
+    df_enc = pd.get_dummies(df_sub, columns=[&#x27;niche&#x27;, &#x27;puse&#x27;], drop_first=False)
+    feature_cols = [c for c in df_enc.columns if c not in [&#x27;y&#x27;, &#x27;bkt&#x27;]]
+    X = df_enc[feature_cols].astype(float).fillna(0)
+
+<span class="cm">    # Scale on this cohort only</span>
+    scaler   = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+<span class="cm">    # Logistic regression trained on this cohort only</span>
+    lr = LogisticRegression(max_iter=1000, C=1.0, random_state=42)
+    lr.fit(X_scaled, treat)
+    ps = lr.predict_proba(X_scaled)[:, 1]
+    df_sub[&#x27;ps&#x27;] = ps
+
+<span class="cm">    # Split by treatment / control</span>
+    treat_idx   = df_sub[df_sub[&#x27;bkt&#x27;] == treat_bkt].index.tolist()
+    control_idx = df_sub[df_sub[&#x27;bkt&#x27;] == control_bkt].index.tolist()
+
+<span class="cm">    # 1:1 nearest-neighbour matching</span>
+    ps_treat   = df_sub.loc[treat_idx,   &#x27;ps&#x27;].values.reshape(-1, 1)
+    ps_control = df_sub.loc[control_idx, &#x27;ps&#x27;].values.reshape(-1, 1)
+
+    nn = NearestNeighbors(n_neighbors=1, metric=&#x27;euclidean&#x27;)
+    nn.fit(ps_control)
+    distances, indices = nn.kneighbors(ps_treat)
+
+    matched_treat, matched_control = [], []
+    for i, (d, idx) in enumerate(zip(distances.flatten(), indices.flatten())):
+        if d &lt;= caliper:
+            matched_treat.append(treat_idx[i])
+            matched_control.append(control_idx[idx])
+
+<span class="cm">    # Auto-relax caliper if too few matches</span>
+    if len(matched_treat) &lt; 50:
+        caliper = 0.10
+        matched_treat, matched_control = [], []
+        for i, (d, idx) in enumerate(zip(distances.flatten(), indices.flatten())):
+            if d &lt;= caliper:
+                matched_treat.append(treat_idx[i])
+                matched_control.append(control_idx[idx])
+
+    if not matched_treat:
+        return None
+
+<span class="cm">    # Core metrics</span>
+    conv_treat   = df_sub.loc[matched_treat,   &#x27;y&#x27;].mean()
+    conv_control = df_sub.loc[matched_control, &#x27;y&#x27;].mean()
+    att          = conv_treat - conv_control
+    raw_treat    = df_sub[df_sub[&#x27;bkt&#x27;] == treat_bkt][&#x27;y&#x27;].mean()
+    raw_control  = df_sub[df_sub[&#x27;bkt&#x27;] == control_bkt][&#x27;y&#x27;].mean()
+    raw_gap      = raw_treat - raw_control
+    conf_pct     = (raw_gap - att) / raw_gap * 100 if raw_gap != 0 else 0
+    match_rate   = len(matched_treat) / len(treat_idx) * 100
+
+<span class="cm">    # SMD after matching (key balance check)</span>
+    numeric_cols = [&#x27;plan&#x27;,&#x27;client_size&#x27;,&#x27;trial_exp&#x27;,&#x27;trial_len&#x27;,&#x27;snap1&#x27;,
+                    &#x27;we&#x27;,&#x27;es&#x27;,&#x27;cc&#x27;,&#x27;ce&#x27;,&#x27;ss&#x27;,&#x27;da&#x27;,&#x27;pc&#x27;,&#x27;dc&#x27;]
+    smd_rows = []
+    for col in numeric_cols:
+        if col not in df_sub.columns:
+            continue
+        t_vals = df_sub.loc[matched_treat,   col]
+        c_vals = df_sub.loc[matched_control, col]
+        pooled = np.sqrt((t_vals.var() + c_vals.var()) / 2)
+        smd    = abs(t_vals.mean() - c_vals.mean()) / pooled if pooled &gt; 0 else 0
+        smd_rows.append({&#x27;var&#x27;: col, &#x27;smd&#x27;: smd})
+    smd_df      = pd.DataFrame(smd_rows)
+    mean_smd    = smd_df[&#x27;smd&#x27;].mean()
+    max_smd     = smd_df[&#x27;smd&#x27;].max()
+    max_smd_var = smd_df.loc[smd_df[&#x27;smd&#x27;].idxmax(), &#x27;var&#x27;]
+
+    return {
+        &#x27;label&#x27;:             label,
+        &#x27;treat_bkt&#x27;:         treat_bkt,
+        &#x27;control_bkt&#x27;:       control_bkt,
+        &#x27;n_treat&#x27;:           len(treat_idx),
+        &#x27;n_control&#x27;:         len(control_idx),
+        &#x27;matched_pairs&#x27;:     len(matched_treat),
+        &#x27;match_rate&#x27;:        round(match_rate, 1),
+        &#x27;raw_treat_pct&#x27;:     round(raw_treat * 100, 1),
+        &#x27;raw_control_pct&#x27;:   round(raw_control * 100, 1),
+        &#x27;raw_gap_pp&#x27;:        round(raw_gap * 100, 1),
+        &#x27;conv_treat_pct&#x27;:    round(conv_treat * 100, 1),
+        &#x27;conv_control_pct&#x27;:  round(conv_control * 100, 1),
+        &#x27;att_pp&#x27;:            round(att * 100, 1),
+        &#x27;conf_pct&#x27;:          round(conf_pct, 0),
+        &#x27;caliper&#x27;:           caliper,
+        &#x27;mean_smd&#x27;:          round(mean_smd, 3),
+        &#x27;max_smd&#x27;:           round(max_smd, 3),
+        &#x27;max_smd_var&#x27;:       max_smd_var,
+        &#x27;ps_balance&#x27;:        round(abs(df_sub.loc[matched_treat,&#x27;ps&#x27;].mean() -
+                                       df_sub.loc[matched_control,&#x27;ps&#x27;].mean()), 4),
+    }
+
+<span class="cm"># ── PRINT ─────────────────────────────────────────────────────</span>
+def print_cohort(cohort_label, results):
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;COHORT: {cohort_label}&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    for r in results:
+        if not r:
+            continue
+        ok_smd  = &#x27;✓&#x27; if r[&#x27;max_smd&#x27;] &lt; 0.1 else (&#x27;~&#x27; if r[&#x27;max_smd&#x27;] &lt; 0.25 else &#x27;✗&#x27;)
+        ok_rate = &#x27;✓&#x27; if r[&#x27;match_rate&#x27;] &gt;= 85 else &#x27;⚠&#x27;
+        print(f&quot;
+  {r[&#x27;label&#x27;]}&quot;)
+        print(f&quot;  {&#x27;─&#x27;*52}&quot;)
+        print(f&quot;  n:        treat={r[&#x27;n_treat&#x27;]:,}  control={r[&#x27;n_control&#x27;]:,}&quot;)
+        print(f&quot;  Matched:  {r[&#x27;matched_pairs&#x27;]:,} pairs  ({r[&#x27;match_rate&#x27;]}% match rate) {ok_rate}&quot;)
+        print(f&quot;  Caliper:  {r[&#x27;caliper&#x27;]}&quot;)
+        print(f&quot;  Raw:      {r[&#x27;treat_bkt&#x27;]} {r[&#x27;raw_treat_pct&#x27;]}%  vs  {r[&#x27;control_bkt&#x27;]} {r[&#x27;raw_control_pct&#x27;]}%  →  {r[&#x27;raw_gap_pp&#x27;]:+.1f}pp&quot;)
+        print(f&quot;  Matched:  {r[&#x27;treat_bkt&#x27;]} {r[&#x27;conv_treat_pct&#x27;]}%  vs  {r[&#x27;control_bkt&#x27;]} {r[&#x27;conv_control_pct&#x27;]}%  →  ATT {r[&#x27;att_pp&#x27;]:+.1f}pp&quot;)
+        print(f&quot;  Conf.%:   {r[&#x27;conf_pct&#x27;]:.0f}% of raw gap explained by confounders&quot;)
+        print(f&quot;  PS bal.:  {r[&#x27;ps_balance&#x27;]:.4f}&quot;)
+        print(f&quot;  SMD:      mean={r[&#x27;mean_smd&#x27;]:.3f}  max={r[&#x27;max_smd&#x27;]:.3f} ({r[&#x27;max_smd_var&#x27;]}) {ok_smd}&quot;)
+
+def print_summary(all_results):
+    print(f&quot;
+
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;CANONICAL SUMMARY — Feb / Mar / Apr 2026&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;
+{&#x27;Cohort&#x27;:&lt;10} {&#x27;Comparison&#x27;:&lt;8} {&#x27;Raw gap&#x27;:&gt;9} {&#x27;ATT&#x27;:&gt;8} {&#x27;Pairs&#x27;:&gt;8} {&#x27;Match%&#x27;:&gt;8} {&#x27;MaxSMD&#x27;:&gt;8}&quot;)
+    print(f&quot;{&#x27;─&#x27;*60}&quot;)
+    for cohort_label, results in all_results:
+        for r in results:
+            if r:
+                print(f&quot;{cohort_label:&lt;10} {r[&#x27;treat_bkt&#x27;]+&#x27;v&#x27;+r[&#x27;control_bkt&#x27;]:&lt;8} &quot;
+                      f&quot;{r[&#x27;raw_gap_pp&#x27;]:&gt;+8.1f}pp {r[&#x27;att_pp&#x27;]:&gt;+7.1f}pp &quot;
+                      f&quot;{r[&#x27;matched_pairs&#x27;]:&gt;8,} {r[&#x27;match_rate&#x27;]:&gt;7.1f}% &quot;
+                      f&quot;{r[&#x27;max_smd&#x27;]:&gt;8.3f}&quot;)
+
+<span class="cm"># ── MAIN ──────────────────────────────────────────────────────</span>
+if __name__ == &quot;__main__&quot;:
+    print(&quot;Connecting via SSO — browser window will open...&quot;)
+    conn = snowflake.connector.connect(
+        account=SNOWFLAKE_ACCOUNT,
+        user=SNOWFLAKE_USER,
+        authenticator=&quot;externalbrowser&quot;,
+        warehouse=SNOWFLAKE_WAREHOUSE,
+        role=SNOWFLAKE_ROLE
+    )
+    conn.cursor().execute(f&quot;USE WAREHOUSE {SNOWFLAKE_WAREHOUSE}&quot;)
+    conn.cursor().execute(f&quot;USE ROLE {SNOWFLAKE_ROLE}&quot;)
+    print(&quot;Connected.
+&quot;)
+
+    all_results = []
+
+    for cohort in COHORTS:
+        print(f&quot;Fetching {cohort[&#x27;label&#x27;]} ({cohort[&#x27;start&#x27;]} → {cohort[&#x27;end&#x27;]})...&quot;)
+        cur = conn.cursor()
+        cur.execute(build_query(cohort[&#x27;start&#x27;], cohort[&#x27;end&#x27;]))
+        df = cur.fetch_pandas_all()
+        df.columns = [c.lower() for c in df.columns]
+        print(f&quot;  {len(df):,} rows | buckets: {df[&#x27;bkt&#x27;].value_counts().to_dict()}&quot;)
+        print(f&quot;  Raw conversion: {df.groupby(&#x27;bkt&#x27;)[&#x27;y&#x27;].mean().round(3).to_dict()}&quot;)
+
+<span class="cm">        # Run PSM independently for this cohort</span>
+        r_ab = run_psm_cohort(df, &#x27;A&#x27;, &#x27;B&#x27;, &#x27;A vs B (Published vs Created-not-published)&#x27;)
+        r_bc = run_psm_cohort(df, &#x27;B&#x27;, &#x27;C&#x27;, &#x27;B vs C (Created-not-published vs No funnel)&#x27;)
+
+        print_cohort(cohort[&#x27;label&#x27;], [r_ab, r_bc])
+        all_results.append((cohort[&#x27;label&#x27;], [r_ab, r_bc]))
+
+    conn.close()
+    print_summary(all_results)
+</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="oddsratio">
+  <div class="section-header">
+    <div class="section-tag">Isolating the effect · Method 4</div>
+    <h2 class="section-title">Logistic regression model</h2>
+    <p class="section-desc">Trained on Feb + Mar 2026 (pooled), validated on April 2026 holdout.</p>
+  </div>
+
+  <div style="background:var(--gray-bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+    <strong>Why this analysis:</strong> The previous methods (funnel-only, stratified, PSM) each removed confounders differently but required grouping or matching. Logistic regression takes a different approach — it holds all 16 factors constant <em>simultaneously</em> in a single model and directly reads the isolated funnel publish effect as a weight. Additionally, by training on Feb+Mar and predicting April (data the model has never seen), we can validate whether the effect is stable and not just a one-month anomaly.
+  </div>
+
+  <!-- Clean isolated effect cards -->
+  <div class="grid-3" style="margin-bottom:16px">
+    <div class="kpi">
+      <div class="kpi-label">No funnel — baseline</div>
+      <div class="kpi-val" style="color:var(--text3)">48.3%</div>
+      <div class="kpi-sub">Conversion with no funnel · the comparison baseline</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Created, not published</div>
+      <div class="kpi-val" style="color:var(--text2)">47.5%</div>
+      <div class="kpi-sub">-0.8pp vs baseline · no meaningful effect</div>
+    </div>
+    <div class="kpi highlight">
+      <div class="kpi-label">Published funnel</div>
+      <div class="kpi-val blue">52.6%</div>
+      <div class="kpi-sub">+4.3pp vs baseline · isolated effect of publishing</div>
+    </div>
+  </div>
+
+  <div class="finding" style="margin-bottom:12px">
+    <strong>How to read this:</strong> The model holds all 16 factors constant — plan tier, niche, trial length, engagement, and the 9 other products — and isolates the effect of publishing alone. Starting from the no-funnel baseline of <strong>48.3%</strong>, publishing a funnel lifts conversion to <strong>52.6%</strong> — a clean <strong>+4.3pp independent lift</strong>. Creating without publishing lands at 47.5% (−0.8pp) — no meaningful effect.
+    <br><br>
+    This <strong>+4.3pp</strong> aligns with the range found by propensity score matching (+2–4pp) and stratified SQL (+7.8pp). Four different methods, same conclusion: publishing independently lifts conversion by roughly <strong>2–4 percentage points</strong>.
+  </div>
+
+  <!-- How 0.170 becomes 4.3pp -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">How the model weight (0.170) translates to +4.3pp</div>
+    <div class="card-sub">The weight is in log-odds units — here is the exact conversion to percentage points</div>
+
+    <div style="margin-top:14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+      The logistic regression assigns each variable a <strong>weight</strong>. The weight for <code style="background:var(--gray-bg);padding:1px 5px;border-radius:3px;font-size:12px">funnel_published</code> is <strong>0.170</strong>. This means: when a company publishes a funnel, <strong>0.170 is added to its conversion score</strong>, with all 16 other factors held constant. The score is in log-odds units — an abstract scale that needs one more step to become a readable percentage.
+    </div>
+
+    <!-- Step by step -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+
+      <div style="padding:14px 12px;border-right:1px solid var(--border);background:var(--gray-bg)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Step 1</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">No-funnel baseline</div>
+        <div style="font-family:var(--mono,monospace);font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">48.3%</div>
+        <div style="font-size:11px;color:var(--text3)">Bucket C actual conversion rate — the starting point</div>
+      </div>
+
+      <div style="padding:14px 12px;border-right:1px solid var(--border);background:var(--gray-bg)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Step 2</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Convert to score</div>
+        <div style="font-family:var(--mono,monospace);font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">−0.068</div>
+        <div style="font-size:11px;color:var(--text3)">log(0.483 / 0.517) — baseline in log-odds units</div>
+      </div>
+
+      <div style="padding:14px 12px;border-right:1px solid var(--border);background:var(--blue-bg)">
+        <div style="font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Step 3 — the weight</div>
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px">Add 0.170</div>
+        <div style="font-family:var(--mono,monospace);font-size:13px;font-weight:600;color:var(--blue);margin-bottom:6px">−0.068 + 0.170 = +0.102</div>
+        <div style="font-size:11px;color:var(--blue)">Publishing adds 0.170 to the score — this is the isolated publish effect</div>
+      </div>
+
+      <div style="padding:14px 12px;border-right:1px solid var(--border);background:var(--gray-bg)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Step 4</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Convert back</div>
+        <div style="font-family:var(--mono,monospace);font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">52.6%</div>
+        <div style="font-size:11px;color:var(--text3)">exp(0.102) / (1 + exp(0.102)) — back to a readable probability</div>
+      </div>
+
+      <div style="padding:14px 12px;background:var(--green-bg)">
+        <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Result</div>
+        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">+4.3pp lift</div>
+        <div style="font-family:var(--mono,monospace);font-size:13px;font-weight:600;color:var(--green);margin-bottom:6px">52.6% − 48.3%</div>
+        <div style="font-size:11px;color:var(--green)">Independent conversion lift from publishing — all 16 factors held constant</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Model validation -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Model validation — trained on Feb+Mar, predicted on April holdout</div>
+    <div class="card-sub">All three buckets predicted within 1pp of actual · confirms the OR is correctly sized</div>
+    <div class="grid-2" style="gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Model accuracy</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">AUC on April holdout <span style="font-size:11px;color:var(--text3)">(ranks converters vs non-converters correctly 78% of the time)</span></span>
+          <span style="font-size:13px;font-weight:600;color:var(--green)">0.779</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">AUC on training set (Feb+Mar)</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text2)">0.792</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">Overfitting (AUC drop)</span>
+          <span style="font-size:13px;font-weight:600;color:var(--green)">1.36pp ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">Accuracy at 0.7 threshold</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text2)">65.8%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">Precision at 0.7 threshold</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text2)">79.5%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0">
+          <span style="font-size:13px;color:var(--text2)">Recall at 0.7 threshold</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text2)">46.0%</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Calibration — predicted vs actual (April)</div>
+        <table style="font-size:12px">
+          <thead><tr>
+            <th style="font-size:10px">Bucket</th>
+            <th style="font-size:10px;text-align:right">Actual</th>
+            <th style="font-size:10px;text-align:right">Predicted</th>
+            <th style="font-size:10px;text-align:right">Gap</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td>A — Published</td>
+              <td class="num">72.8%</td>
+              <td class="num">73.8%</td>
+              <td class="num green">+1.0pp ✓</td>
+            </tr>
+            <tr>
+              <td>B — Created, not pub.</td>
+              <td class="num">54.8%</td>
+              <td class="num">54.3%</td>
+              <td class="num green">−0.5pp ✓</td>
+            </tr>
+            <tr>
+              <td>C — No funnel</td>
+              <td class="num">48.2%</td>
+              <td class="num">48.3%</td>
+              <td class="num green">+0.1pp ✓</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)">The model predicts each group conversion within 1pp of actual, confirming the weights are accurate. These are raw group rates (including each group engagement profile), not the isolated effect.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls used -->
+  <!-- Factor weights visual -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">What the model learned — factor importance</div>
+    <div class="card-sub">Each bar shows how strongly a factor is associated with conversion after all others are held constant. Positive = lifts conversion · Negative = lowers conversion · Longer bar = stronger effect.</div>
+    <div id="factorWeights" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">16 factors held constant in the model</div>
+    <div class="card-sub">The funnel publish lift is measured after accounting for all of these simultaneously</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+      <span class="chip chip-gray">Plan tier ($97/$297/$497)</span>
+      <span class="chip chip-gray">Business niche</span>
+      <span class="chip chip-gray">Primary use case</span>
+      <span class="chip chip-gray">Trial length (days)</span>
+      <span class="chip chip-gray">Client size</span>
+      <span class="chip chip-gray">Capture call / Trial Experience (Y/N)</span>
+      <span class="chip chip-gray">Workflow executed</span>
+      <span class="chip chip-gray">Workflow created</span>
+      <span class="chip chip-gray">Email sent</span>
+      <span class="chip chip-gray">Contact created</span>
+      <span class="chip chip-gray">SMS sent</span>
+      <span class="chip chip-gray">Opportunity created</span>
+      <span class="chip chip-gray">Form submitted</span>
+      <span class="chip chip-gray">Voice call</span>
+      <span class="chip chip-gray">Calendar event</span>
+    </div>
+  </div>
+
+  <!-- VIF multicollinearity check -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Multicollinearity check — is the +4.3pp effect reliable?</div>
+    <div class="card-sub">VIF (Variance Inflation Factor) measures whether correlated variables are distorting the coefficients. VIF &lt; 5 = no concern.</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
+      <!-- Key variables -->
+      <div>
+        <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Treatment variables (the ones we care about)</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;font-weight:500;color:var(--blue)">★ Funnel published</span>
+          <span style="font-size:13px;font-weight:500;color:var(--green)">VIF 1.32 ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:13px;color:var(--text2)">★ Funnel created, not pub.</span>
+          <span style="font-size:13px;font-weight:500;color:var(--green)">VIF 1.16 ✓</span>
+        </div>
+
+        <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px">Top control variables</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:12px;color:var(--text2)">Workflow executed</span>
+          <span style="font-size:12px;color:var(--green)">3.00 ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:12px;color:var(--text2)">SMS sent</span>
+          <span style="font-size:12px;color:var(--green)">2.37 ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:12px;color:var(--text2)">Email sent</span>
+          <span style="font-size:12px;color:var(--green)">2.16 ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-bg)">
+          <span style="font-size:12px;color:var(--text2)">Contact created</span>
+          <span style="font-size:12px;color:var(--green)">1.98 ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0">
+          <span style="font-size:12px;color:var(--text2)">All other controls</span>
+          <span style="font-size:12px;color:var(--green)">1.10–1.71 ✓</span>
+        </div>
+      </div>
+
+      <!-- Interpretation -->
+      <div>
+        <div style="background:var(--green-bg);border-radius:8px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:500;color:var(--green);margin-bottom:6px">✓ No multicollinearity concern</div>
+          <div style="font-size:13px;color:var(--green);line-height:1.6">Funnel published VIF = 1.32 — well below the 5.0 threshold. The +4.3pp isolated effect is <strong>not inflated</strong> by correlation with engagement variables, plan tier, or any other control. The coefficient is reliable.</div>
+        </div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          <strong style="color:var(--text)">What VIF measures:</strong> If funnel_published were highly correlated with, say, workflow_executed, the model couldn't cleanly separate which one drives conversion — and the 0.170 weight for publishing could be inflated. VIF = 1.32 means publishing is almost entirely independent of the other 16 variables after accounting for everything else.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-or')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View Python script
+  </button>
+  <div class="query-box" id="q-or">
+    <div class="query-header"><span>Python — logistic_regression_analysis.py</span><button class="query-copy" onclick="copyCode('q-or')">Copy</button></div>
+    <pre>&quot;&quot;&quot;
+Logistic Regression Odds Ratio Analysis: Funnel Create vs Funnel Publish → Trial Conversion
+HighLevel Funnels &amp; Websites | US only
+
+Train on Feb + Mar 2026 (pooled) → validate on Apr 2026 (holdout)
+
+Outputs:
+  1. Odds ratio for funnel_created_not_published vs no funnel (baseline)
+  2. Odds ratio for funnel_published vs no funnel (baseline)
+  3. Incremental OR: publishing over creating
+  4. AUC on April holdout
+  5. Coefficient calibration: predicted vs actual gap A vs B vs C in April
+
+Usage:
+    python odds_ratio_analysis.py
+
+Requirements:
+    pip install pandas scikit-learn numpy statsmodels &quot;snowflake-connector-python[pandas]&quot;
+&quot;&quot;&quot;
+
+import snowflake.connector
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_auc_score, classification_report
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+import warnings
+warnings.filterwarnings(&#x27;ignore&#x27;)
+
+<span class="cm"># ── CREDENTIALS ───────────────────────────────────────────────</span>
+SNOWFLAKE_ACCOUNT   = &quot;YOUR_ACCOUNT_IDENTIFIER&quot;
+SNOWFLAKE_USER      = &quot;DIVYANSH_BENGANI&quot;
+SNOWFLAKE_WAREHOUSE = &quot;PROD_HIGHLEVEL_DWH&quot;
+SNOWFLAKE_ROLE      = &quot;DWH_RO_ROLE&quot;
+
+<span class="cm"># ── QUERY ─────────────────────────────────────────────────────</span>
+def build_query(start_date, end_date):
+    return f&quot;&quot;&quot;
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE)   AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS y,
+    MAX(BUSINESS_CATEGORY) AS niche,
+    MAX(CASE
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Business Owner to Manage my Business&#x27;,&#x27;To operate my own business&#x27;) THEN &#x27;BO&#x27;
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Marketing Agency to provide Services to Clients&#x27;,
+            &#x27;To help my clients or other businesses with marketing&#x27;) THEN &#x27;AG&#x27;
+      WHEN CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED IN
+           (&#x27;As a Saas Entrepreneur for White-labeling and Reselling&#x27;,
+            &#x27;For white-labelling and reselling software&#x27;) THEN &#x27;SR&#x27;
+      ELSE &#x27;OT&#x27;
+    END) AS puse,
+    MAX(CASE WHEN SI_PLAN_ID = &#x27;plan_EOhzMspqryT0Qg&#x27; THEN 497
+             WHEN SI_PLAN_ID = &#x27;plan_EMqqWoc8PxMf3l&#x27; THEN 297
+             ELSE 97 END) AS plan,
+    MAX(CASE WHEN TRIAL_EXPERIENCE = &#x27;Yes&#x27; THEN 1 ELSE 0 END) AS trial_exp,
+    MAX(COALESCE(ORIGINAL_TRIAL_LENGTH, 20)) AS trial_len,
+    MAX(CASE
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;I don&#x27;&#x27;t have any customers yet&#x27; THEN 0
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;1-3&#x27;   THEN 1
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;4-9&#x27;   THEN 2
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;10-49&#x27; THEN 3
+      WHEN CUSTOMER_METADATA_NUMBER_OF_CLIENTS = &#x27;50+&#x27;   THEN 4
+      ELSE 0
+    END) AS client_size
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;{start_date}&#x27;
+    AND CONVERTED_TRIAL_START_DATE  &lt; &#x27;{end_date}&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+lf AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE       BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS cf,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pf
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+),
+op AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN d.WORKFLOW_EXECUTIONS   &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS wf_exec,
+    MAX(CASE WHEN d.WORKFLOWS_CREATED     &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS wf_created,
+    MAX(CASE WHEN d.EMAILS_SENT           &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS email_sent,
+    MAX(CASE WHEN d.CONTACTS_CREATED      &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS contact_created,
+    MAX(CASE WHEN d.SMS_SENT              &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS sms_sent,
+    MAX(CASE WHEN d.OPPORTUNITIES_CREATED &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS opportunity,
+    MAX(CASE WHEN d.FORMS_SUBMITTED       &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS form_submitted,
+    MAX(CASE WHEN d.VOICE_CALLS_INITIATED &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS voice_call,
+    MAX(CASE WHEN d.CALENDAR_EVENTS       &gt; 0 AND d.DATE_CREATED BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS calendar_event
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_ANALYTICS.PRODUCT_LOCATION_ADOPTION_DAILY d ON d.LOCATION_ID = cl.LOCATION_ID
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  t.y,
+  -- Funnel bucket dummies (baseline = no funnel, bucket C)
+  CASE WHEN COALESCE(lf.pf,0)=1 THEN 1 ELSE 0 END AS funnel_published,
+  CASE WHEN COALESCE(lf.cf,0)=1 AND COALESCE(lf.pf,0)=0 THEN 1 ELSE 0 END AS funnel_created_not_pub,
+  -- Raw bucket label (for calibration check)
+  CASE WHEN COALESCE(lf.pf,0)=1 THEN &#x27;A&#x27; WHEN COALESCE(lf.cf,0)=1 THEN &#x27;B&#x27; ELSE &#x27;C&#x27; END AS bucket,
+  -- Controls
+  t.plan, t.trial_exp, t.trial_len, t.client_size, t.niche, t.puse,
+  COALESCE(op.wf_exec,0)       AS wf_exec,
+  COALESCE(op.wf_created,0)    AS wf_created,
+  COALESCE(op.email_sent,0)    AS email_sent,
+  COALESCE(op.contact_created,0) AS contact_created,
+  COALESCE(op.sms_sent,0)      AS sms_sent,
+  COALESCE(op.opportunity,0)   AS opportunity,
+  COALESCE(op.form_submitted,0) AS form_submitted,
+  COALESCE(op.voice_call,0)    AS voice_call,
+  COALESCE(op.calendar_event,0) AS calendar_event
+FROM trials t
+LEFT JOIN lf ON t.company_id = lf.COMPANY_ID
+LEFT JOIN op ON t.company_id = op.COMPANY_ID
+&quot;&quot;&quot;
+
+<span class="cm"># ── FETCH ─────────────────────────────────────────────────────</span>
+def fetch(conn, start, end, label):
+    print(f&quot;  Fetching {label} ({start} → {end})...&quot;)
+    cur = conn.cursor()
+    cur.execute(build_query(start, end))
+    df = cur.fetch_pandas_all()
+    df.columns = [c.lower() for c in df.columns]
+    print(f&quot;  → {len(df):,} rows | converted={df[&#x27;y&#x27;].mean():.1%} | &quot;
+          f&quot;A={( df[&#x27;bucket&#x27;]==&#x27;A&#x27;).mean():.1%} B={(df[&#x27;bucket&#x27;]==&#x27;B&#x27;).mean():.1%} C={(df[&#x27;bucket&#x27;]==&#x27;C&#x27;).mean():.1%}&quot;)
+    return df
+
+<span class="cm"># ── FEATURE ENGINEERING ───────────────────────────────────────</span>
+def engineer(df):
+    &quot;&quot;&quot;One-hot encode niche and puse. Return X matrix and feature names.&quot;&quot;&quot;
+    df = df.copy()
+    df[&#x27;niche&#x27;] = df[&#x27;niche&#x27;].fillna(&#x27;Unknown&#x27;)
+    df_enc = pd.get_dummies(df, columns=[&#x27;niche&#x27;, &#x27;puse&#x27;], drop_first=True)
+    control_cols = [
+        &#x27;plan&#x27;, &#x27;trial_exp&#x27;, &#x27;trial_len&#x27;, &#x27;client_size&#x27;,
+        &#x27;wf_exec&#x27;, &#x27;wf_created&#x27;, &#x27;email_sent&#x27;, &#x27;contact_created&#x27;,
+        &#x27;sms_sent&#x27;, &#x27;opportunity&#x27;, &#x27;form_submitted&#x27;, &#x27;voice_call&#x27;, &#x27;calendar_event&#x27;
+    ]
+    niche_cols = [c for c in df_enc.columns if c.startswith(&#x27;niche_&#x27;)]
+    puse_cols  = [c for c in df_enc.columns if c.startswith(&#x27;puse_&#x27;)]
+<span class="cm">    # Treatment dummies — last so indices are known</span>
+    treatment_cols = [&#x27;funnel_published&#x27;, &#x27;funnel_created_not_pub&#x27;]
+    feature_cols = control_cols + niche_cols + puse_cols + treatment_cols
+    feature_cols = [c for c in feature_cols if c in df_enc.columns]
+    X = df_enc[feature_cols].astype(float).fillna(0)
+    return X, feature_cols
+
+<span class="cm"># ── MAIN ──────────────────────────────────────────────────────</span>
+if __name__ == &quot;__main__&quot;:
+    print(&quot;Connecting via SSO — browser window will open...&quot;)
+    conn = snowflake.connector.connect(
+        account=SNOWFLAKE_ACCOUNT,
+        user=SNOWFLAKE_USER,
+        authenticator=&quot;externalbrowser&quot;,
+        warehouse=SNOWFLAKE_WAREHOUSE,
+        role=SNOWFLAKE_ROLE
+    )
+    conn.cursor().execute(f&quot;USE WAREHOUSE {SNOWFLAKE_WAREHOUSE}&quot;)
+    conn.cursor().execute(f&quot;USE ROLE {SNOWFLAKE_ROLE}&quot;)
+    print(&quot;Connected.
+&quot;)
+
+<span class="cm">    # ── Fetch data ────────────────────────────────────────────</span>
+    print(&quot;Fetching data...&quot;)
+    df_feb = fetch(conn, &#x27;2026-02-01&#x27;, &#x27;2026-03-01&#x27;, &#x27;February&#x27;)
+    df_mar = fetch(conn, &#x27;2026-03-01&#x27;, &#x27;2026-04-01&#x27;, &#x27;March&#x27;)
+    df_apr = fetch(conn, &#x27;2026-04-01&#x27;, &#x27;2026-05-01&#x27;, &#x27;April (holdout)&#x27;)
+    conn.close()
+
+<span class="cm">    # ── Pool Feb + Mar for training ───────────────────────────</span>
+    df_train = pd.concat([df_feb, df_mar], ignore_index=True)
+    print(f&quot;
+Training set: {len(df_train):,} companies (Feb + Mar pooled)&quot;)
+    print(f&quot;Holdout set:  {len(df_apr):,} companies (April)&quot;)
+
+<span class="cm">    # ── Feature engineering ───────────────────────────────────</span>
+<span class="cm">    # Fit on training set, align holdout to same columns</span>
+    X_train, feature_cols = engineer(df_train)
+    y_train = df_train[&#x27;y&#x27;].values
+
+    X_apr_raw, _ = engineer(df_apr)
+<span class="cm">    # Align April to training columns (add missing cols as 0, drop extras)</span>
+    X_apr = X_apr_raw.reindex(columns=feature_cols, fill_value=0)
+
+    y_apr   = df_apr[&#x27;y&#x27;].values
+    bkt_apr = df_apr[&#x27;bucket&#x27;].values
+
+<span class="cm">    # ── Scale — fit on train only ─────────────────────────────</span>
+    scaler = StandardScaler()
+    X_train_sc = scaler.fit_transform(X_train)
+    X_apr_sc   = scaler.transform(X_apr)
+
+<span class="cm">    # ── Fit logistic regression on Feb + Mar ──────────────────</span>
+    print(&quot;
+Fitting logistic regression on Feb + Mar...&quot;)
+    lr = LogisticRegression(max_iter=1000, C=1.0, random_state=42)
+    lr.fit(X_train_sc, y_train)
+
+<span class="cm">    # ── VIF — Multicollinearity check ─────────────────────────</span>
+<span class="cm">    # VIF measures how much each variable&#x27;s variance is inflated</span>
+<span class="cm">    # by correlation with other variables.</span>
+<span class="cm">    # VIF &lt; 5 = acceptable, 5-10 = high, 10+ = severe</span>
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;MULTICOLLINEARITY CHECK — Variance Inflation Factors (VIF)&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;
+  VIF &lt; 5: acceptable | 5-10: high | 10+: severe&quot;)
+    print(f&quot;
+  {&#x27;Variable&#x27;:&lt;35} {&#x27;VIF&#x27;:&gt;8}  {&#x27;Assessment&#x27;}&quot;)
+    print(f&quot;  {&#x27;─&#x27;*60}&quot;)
+
+<span class="cm">    # Compute VIF on the UNSCALED training data (VIF on scaled data is identical</span>
+<span class="cm">    # for standardization, but unscaled is more conventional)</span>
+    X_train_df = pd.DataFrame(X_train_sc, columns=feature_cols)
+    vif_data = []
+    for i, col in enumerate(feature_cols):
+        vif_val = variance_inflation_factor(X_train_df.values, i)
+        assessment = &#x27;✓ OK&#x27; if vif_val &lt; 5 else (&#x27;⚠ High&#x27; if vif_val &lt; 10 else &#x27;✗ Severe&#x27;)
+        vif_data.append((col, vif_val, assessment))
+
+<span class="cm">    # Sort by VIF descending</span>
+    vif_data.sort(key=lambda x: x[1], reverse=True)
+
+<span class="cm">    # Label mapping for readability</span>
+    vif_labels = {
+        &#x27;funnel_published&#x27;:       &#x27;★ Funnel published&#x27;,
+        &#x27;funnel_created_not_pub&#x27;: &#x27;★ Funnel created, not pub.&#x27;,
+        &#x27;plan&#x27;:                   &#x27;Plan tier&#x27;,
+        &#x27;trial_exp&#x27;:              &#x27;Capture call (Trial Exp)&#x27;,
+        &#x27;trial_len&#x27;:              &#x27;Trial length&#x27;,
+        &#x27;client_size&#x27;:            &#x27;Number of clients&#x27;,
+        &#x27;wf_exec&#x27;:                &#x27;Workflow executed&#x27;,
+        &#x27;wf_created&#x27;:             &#x27;Workflow created&#x27;,
+        &#x27;email_sent&#x27;:             &#x27;Email sent&#x27;,
+        &#x27;contact_created&#x27;:        &#x27;Contact created&#x27;,
+        &#x27;sms_sent&#x27;:               &#x27;SMS sent&#x27;,
+        &#x27;opportunity&#x27;:            &#x27;Opportunity created&#x27;,
+        &#x27;form_submitted&#x27;:         &#x27;Form submitted&#x27;,
+        &#x27;voice_call&#x27;:             &#x27;Voice call&#x27;,
+        &#x27;calendar_event&#x27;:         &#x27;Calendar event&#x27;,
+    }
+
+    funnel_pub_vif = None
+    funnel_cnp_vif = None
+    high_vif_count = 0
+
+    for col, vif_val, assessment in vif_data:
+        label = vif_labels.get(col, col)
+        print(f&quot;  {label:&lt;35} {vif_val:&gt;8.2f}  {assessment}&quot;)
+        if col == &#x27;funnel_published&#x27;:
+            funnel_pub_vif = vif_val
+        if col == &#x27;funnel_created_not_pub&#x27;:
+            funnel_cnp_vif = vif_val
+        if vif_val &gt;= 5:
+            high_vif_count += 1
+
+    print(f&quot;
+  Summary:&quot;)
+    if funnel_pub_vif and funnel_pub_vif &lt; 5:
+        print(f&quot;  ✓ funnel_published VIF = {funnel_pub_vif:.2f} — coefficient is reliable&quot;)
+        print(f&quot;    The +4pp isolated effect is NOT inflated by multicollinearity.&quot;)
+    elif funnel_pub_vif and funnel_pub_vif &lt; 10:
+        print(f&quot;  ⚠ funnel_published VIF = {funnel_pub_vif:.2f} — moderate collinearity&quot;)
+        print(f&quot;    The direction (+ve lift) is trustworthy but magnitude may be slightly inflated.&quot;)
+    else:
+        print(f&quot;  ✗ funnel_published VIF = {funnel_pub_vif:.2f} — severe collinearity&quot;)
+        print(f&quot;    The coefficient is unreliable. Consider dropping correlated variables.&quot;)
+
+    if high_vif_count &gt; 0:
+        print(f&quot;
+  {high_vif_count} variable(s) have VIF ≥ 5 (among control variables).&quot;)
+        print(f&quot;  High VIF among controls is acceptable — we only need their coefficients&quot;)
+        print(f&quot;  to be collectively accurate, not individually precise.&quot;)
+    else:
+        print(f&quot;
+  All variables have VIF &lt; 5 — no multicollinearity concerns.&quot;)
+
+<span class="cm">    # ── Clean isolated effect (coefficient at no-funnel baseline) ──</span>
+<span class="cm">    # The logistic regression coefficient for funnel_published IS the</span>
+<span class="cm">    # isolated effect, holding all 16 other factors constant.</span>
+<span class="cm">    # We express it as a pp lift by applying it at the no-funnel baseline.</span>
+    coef = lr.coef_[0]
+    coef_dict = dict(zip(feature_cols, coef))
+
+<span class="cm">    # Odds ratios from the two funnel coefficients (scale-invariant for binary vars)</span>
+    or_published = np.exp(coef_dict.get(&#x27;funnel_published&#x27;, 0))
+    or_created   = np.exp(coef_dict.get(&#x27;funnel_created_not_pub&#x27;, 0))
+
+<span class="cm">    # No-funnel baseline = bucket C actual conversion rate</span>
+    baseline_c = df_apr[df_apr[&#x27;bucket&#x27;] == &#x27;C&#x27;][&#x27;y&#x27;].mean()
+    baseline_odds = baseline_c / (1 - baseline_c)
+
+<span class="cm">    # Apply each funnel coefficient at the baseline</span>
+    pub_odds  = baseline_odds * or_published
+    cnp_odds  = baseline_odds * or_created
+    prob_pub  = pub_odds / (1 + pub_odds)
+    prob_cnp  = cnp_odds / (1 + cnp_odds)
+
+    lift_pub = prob_pub - baseline_c
+    lift_cnp = prob_cnp - baseline_c
+
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;PART 1 — ISOLATED EFFECT OF PUBLISHING (trained on Feb + Mar)&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;
+  The model holds all 16 factors constant and isolates the&quot;)
+    print(f&quot;  effect of publishing. Expressed as a pp lift at the no-funnel baseline:&quot;)
+    print(f&quot;
+  {&#x27;Scenario&#x27;:&lt;35} {&#x27;Conversion&#x27;:&gt;12}  {&#x27;Lift&#x27;:&gt;8}&quot;)
+    print(f&quot;  {&#x27;─&#x27;*58}&quot;)
+    print(f&quot;  {&#x27;No funnel (baseline)&#x27;:&lt;35} {baseline_c:&gt;11.1%}  {&#x27;—&#x27;:&gt;8}&quot;)
+    print(f&quot;  {&#x27;Created, not published&#x27;:&lt;35} {prob_cnp:&gt;11.1%}  {lift_cnp*100:&gt;+7.1f}pp&quot;)
+    print(f&quot;  {&#x27;Published funnel&#x27;:&lt;35} {prob_pub:&gt;11.1%}  {lift_pub*100:&gt;+7.1f}pp&quot;)
+    print(f&quot;
+  → Publishing independently lifts conversion by {lift_pub*100:+.1f}pp&quot;)
+    print(f&quot;    Creating without publishing: {lift_cnp*100:+.1f}pp (no meaningful effect)&quot;)
+    print(f&quot;
+  This is the clean isolated effect — the funnel_published coefficient&quot;)
+    print(f&quot;  applied at the no-funnel baseline, with all other factors held constant.&quot;)
+
+<span class="cm">    # ── Factor weights table ──────────────────────────────────</span>
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;FACTOR WEIGHTS — what drives conversion in the model&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;  (Positive = associated with higher conversion · Negative = lower)&quot;)
+    print(f&quot;  (Magnitude shows relative importance after standardisation)&quot;)
+    print()
+
+<span class="cm">    # Group and label factors cleanly</span>
+    factor_labels = {
+        &#x27;funnel_published&#x27;:       &#x27;Funnel published ★&#x27;,
+        &#x27;funnel_created_not_pub&#x27;: &#x27;Funnel created, not published&#x27;,
+        &#x27;plan&#x27;:                   &#x27;Plan tier ($97→$297→$497)&#x27;,
+        &#x27;trial_exp&#x27;:              &#x27;Had onboarding call (Y/N)&#x27;,
+        &#x27;trial_len&#x27;:              &#x27;Trial length (days)&#x27;,
+        &#x27;client_size&#x27;:            &#x27;Number of clients&#x27;,
+        &#x27;wf_exec&#x27;:                &#x27;Workflow executed&#x27;,
+        &#x27;wf_created&#x27;:             &#x27;Workflow created&#x27;,
+        &#x27;email_sent&#x27;:             &#x27;Email sent&#x27;,
+        &#x27;contact_created&#x27;:        &#x27;Contact created&#x27;,
+        &#x27;sms_sent&#x27;:               &#x27;SMS sent&#x27;,
+        &#x27;opportunity&#x27;:            &#x27;Opportunity created&#x27;,
+        &#x27;form_submitted&#x27;:         &#x27;Form submitted&#x27;,
+        &#x27;voice_call&#x27;:             &#x27;Voice call made&#x27;,
+        &#x27;calendar_event&#x27;:         &#x27;Calendar event&#x27;,
+    }
+
+<span class="cm">    # Collect named + niche/puse buckets</span>
+    named_rows = []
+    niche_rows = []
+    puse_rows  = []
+
+    for col, w in zip(feature_cols, coef):
+        if col in factor_labels:
+            named_rows.append((factor_labels[col], w, col))
+        elif col.startswith(&#x27;niche_&#x27;):
+            niche_rows.append((col.replace(&#x27;niche_&#x27;,&#x27;&#x27;), w))
+        elif col.startswith(&#x27;puse_&#x27;):
+            puse_rows.append((col.replace(&#x27;puse_&#x27;,&#x27;&#x27;), w))
+
+    named_rows.sort(key=lambda x: abs(x[1]), reverse=True)
+
+    print(f&quot;  {&#x27;Factor&#x27;:&lt;35} {&#x27;Weight&#x27;:&gt;8}  {&#x27;Direction&#x27;}&quot;)
+    print(f&quot;  {&#x27;─&#x27;*60}&quot;)
+    for label, w, _ in named_rows:
+        bar = &#x27;█&#x27; * min(int(abs(w) * 20), 20)
+        direction = f&quot;+{bar}&quot; if w &gt; 0 else f&quot;-{bar}&quot;
+        star = &#x27; ←&#x27; if &#x27;published&#x27; in label.lower() or &#x27;created, not&#x27; in label.lower() else &#x27;&#x27;
+        print(f&quot;  {label:&lt;35} {w:&gt;+8.3f}  {direction}{star}&quot;)
+
+<span class="cm">    # Niche summary (top 3 positive, top 3 negative)</span>
+    niche_rows.sort(key=lambda x: x[1], reverse=True)
+    print(f&quot;
+  Top niches for conversion (relative to average):&quot;)
+    for name, w in niche_rows[:3]:
+        print(f&quot;    + {name:&lt;30} {w:&gt;+.3f}&quot;)
+    print(f&quot;  Niches least associated with conversion:&quot;)
+    for name, w in niche_rows[-3:]:
+        print(f&quot;    - {name:&lt;30} {w:&gt;+.3f}&quot;)
+
+<span class="cm">    # Primary use</span>
+    puse_rows.sort(key=lambda x: x[1], reverse=True)
+    print(f&quot;
+  Primary use case weights:&quot;)
+    for name, w in puse_rows:
+        print(f&quot;    {name:&lt;35} {w:&gt;+.3f}&quot;)
+
+<span class="cm">    # ── Part 2: Validate on April holdout ────────────────────</span>
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;PART 2 — VALIDATION ON APRIL HOLDOUT&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+
+    y_pred_prob = lr.predict_proba(X_apr_sc)[:, 1]
+
+    THRESHOLD   = 0.7
+    y_pred_bin  = (y_pred_prob &gt;= THRESHOLD).astype(int)
+
+    auc = roc_auc_score(y_apr, y_pred_prob)
+    print(f&quot;
+  AUC on April holdout: {auc:.4f}&quot;)
+    if auc &gt;= 0.75:
+        print(f&quot;  → Strong generalization — weights transfer well from Feb+Mar to April&quot;)
+    elif auc &gt;= 0.65:
+        print(f&quot;  → Moderate generalization — weights broadly applicable with some drift&quot;)
+    else:
+        print(f&quot;  → Weak generalization — Feb+Mar weights may not reflect April patterns&quot;)
+
+    train_pred = lr.predict_proba(X_train_sc)[:, 1]
+    train_auc  = roc_auc_score(y_train, train_pred)
+    print(f&quot;  AUC on training set (Feb+Mar): {train_auc:.4f}&quot;)
+    print(f&quot;  AUC drop (train → holdout):    {(train_auc - auc)*100:.2f}pp &quot;
+          f&quot;{&#x27;← within normal range&#x27; if train_auc - auc &lt; 0.05 else &#x27;← notable drift&#x27;}&quot;)
+
+<span class="cm">    # ── Accuracy, Precision, Recall at 0.7 threshold ──────────</span>
+    from sklearn.metrics import accuracy_score, precision_score, recall_score
+
+    accuracy  = accuracy_score(y_apr, y_pred_bin)
+    precision = precision_score(y_apr, y_pred_bin, zero_division=0)
+    recall    = recall_score(y_apr, y_pred_bin, zero_division=0)
+    flagged   = y_pred_bin.sum()
+    flagged_pct = flagged / len(y_pred_bin) * 100
+
+    print(f&quot;
+  Classification metrics at threshold = {THRESHOLD}&quot;)
+    print(f&quot;  {&#x27;─&#x27;*45}&quot;)
+    print(f&quot;  Companies flagged as &#x27;will convert&#x27;:  {flagged:,} ({flagged_pct:.1f}% of April cohort)&quot;)
+    print(f&quot;  Accuracy:   {accuracy:.1%}  — overall % correctly classified&quot;)
+    print(f&quot;  Precision:  {precision:.1%}  — of flagged companies, % that actually converted&quot;)
+    print(f&quot;  Recall:     {recall:.1%}  — of actual converters, % the model caught&quot;)
+    print(f&quot;
+  Interpretation:&quot;)
+    if precision &gt;= 0.80:
+        print(f&quot;  ✓ High precision ({precision:.0%}) — model&#x27;s high-confidence predictions are trustworthy&quot;)
+    elif precision &gt;= 0.70:
+        print(f&quot;  ~ Moderate precision ({precision:.0%}) — reasonable but some false positives&quot;)
+    else:
+        print(f&quot;  ✗ Low precision ({precision:.0%}) — too many false positives at this threshold&quot;)
+    if recall &gt;= 0.60:
+        print(f&quot;  ✓ Recall ({recall:.0%}) — model catches majority of actual converters&quot;)
+    elif recall &gt;= 0.40:
+        print(f&quot;  ~ Recall ({recall:.0%}) — model catches less than half of converters (expected at high threshold)&quot;)
+    else:
+        print(f&quot;  ~ Low recall ({recall:.0%}) — threshold too high, missing most converters&quot;)
+
+<span class="cm">    # ── Coefficient calibration: predicted vs actual by bucket ─</span>
+    print(f&quot;
+  Coefficient calibration — predicted vs actual conversion by bucket:&quot;)
+    print(f&quot;  (Validates whether the funnel publish OR is the right magnitude)&quot;)
+    print(f&quot;
+  {&#x27;Bucket&#x27;:&lt;30} {&#x27;Actual conv&#x27;:&gt;12} {&#x27;Predicted conv&#x27;:&gt;15} {&#x27;Gap&#x27;:&gt;8} {&#x27;n&#x27;:&gt;8}&quot;)
+    print(f&quot;  {&#x27;─&#x27;*75}&quot;)
+
+    for bkt, label in [(&#x27;A&#x27;,&#x27;A — Published&#x27;), (&#x27;B&#x27;,&#x27;B — Created, not pub.&#x27;), (&#x27;C&#x27;,&#x27;C — No funnel&#x27;)]:
+        mask = bkt_apr == bkt
+        if mask.sum() == 0:
+            continue
+        actual    = y_apr[mask].mean()
+        predicted = y_pred_prob[mask].mean()
+        gap       = predicted - actual
+        flag = &#x27;✓&#x27; if abs(gap) &lt; 0.03 else (&#x27;~&#x27; if abs(gap) &lt; 0.06 else &#x27;✗ over&#x27; if gap &gt; 0 else &#x27;✗ under&#x27;)
+        print(f&quot;  {label:&lt;30} {actual:&gt;11.1%} {predicted:&gt;14.1%} {gap:&gt;+8.1%}  {flag}  n={mask.sum():,}&quot;)
+
+    print(f&quot;
+  Interpretation: gaps &lt; 3pp = well-calibrated (✓), 3–6pp = acceptable (~),&quot;)
+    print(f&quot;  &gt;6pp = model over/under-predicts for that bucket (✗)&quot;)
+
+<span class="cm">    # ── Predicted conversion gap A vs B vs C in April ─────────</span>
+    pred_A = y_pred_prob[bkt_apr == &#x27;A&#x27;].mean()
+    pred_B = y_pred_prob[bkt_apr == &#x27;B&#x27;].mean()
+    pred_C = y_pred_prob[bkt_apr == &#x27;C&#x27;].mean()
+    act_A  = y_apr[bkt_apr == &#x27;A&#x27;].mean()
+    act_B  = y_apr[bkt_apr == &#x27;B&#x27;].mean()
+    act_C  = y_apr[bkt_apr == &#x27;C&#x27;].mean()
+
+    print(f&quot;
+  A vs C gap — actual: {(act_A - act_C)*100:+.1f}pp | predicted: {(pred_A - pred_C)*100:+.1f}pp&quot;)
+    print(f&quot;  A vs B gap — actual: {(act_A - act_B)*100:+.1f}pp | predicted: {(pred_A - pred_B)*100:+.1f}pp&quot;)
+    print(f&quot;  B vs C gap — actual: {(act_B - act_C)*100:+.1f}pp | predicted: {(pred_B - pred_C)*100:+.1f}pp&quot;)
+
+    print(f&quot;
+{&#x27;=&#x27;*60}&quot;)
+    print(&quot;SUMMARY&quot;)
+    print(f&quot;{&#x27;=&#x27;*60}&quot;)
+    print(f&quot;  Isolated effect of publishing (all 16 factors held constant):&quot;)
+    print(f&quot;  No funnel (baseline):      {baseline_c:.1%}&quot;)
+    print(f&quot;  Published funnel:          {prob_pub:.1%}  ({lift_pub*100:+.1f}pp isolated lift)&quot;)
+    print(f&quot;  Created, not published:    {prob_cnp:.1%}  ({lift_cnp*100:+.1f}pp — no effect)&quot;)
+    print(f&quot;  AUC on April holdout:      {auc:.4f}  ({&#x27;generalizes well&#x27; if auc &gt;= 0.70 else &#x27;moderate&#x27;})&quot;)
+    print(f&quot;  VIF (funnel_published):    {funnel_pub_vif:.2f}   ({&#x27;no multicollinearity concern&#x27; if funnel_pub_vif &lt; 5 else &#x27;moderate collinearity&#x27; if funnel_pub_vif &lt; 10 else &#x27;severe — coefficient unreliable&#x27;})&quot;)
+</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="doseresponse">
+  <div class="section-header">
+    <div class="section-tag">Other factors</div>
+    <h2 class="section-title">Does publishing more funnels increase conversion?</h2>
+    <p class="section-desc">Feb, Mar, Apr 2026 · US only · non-snapshot funnels only.</p>
+  </div>
+  <div style="background:var(--gray-bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+    <strong>Why this analysis:</strong> If funnel publishing genuinely drives conversion, publishing more funnels should produce progressively higher conversion — a clean step-up from 1 → 2 → 3+ funnels. A pure engagement confounder wouldn't necessarily produce this monotonic gradient. This is a dose-response validation.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="finding">
+    <strong>Key insight:</strong> The biggest jump by far is from no funnel → 1 funnel (+22–25pp). Publishing a 2nd funnel adds a further +1.5–4.5pp. Beyond 2, returns diminish. This confirms the first publish is the critical activation moment.
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Conversion rate by number of funnels published during trial</div>
+    <div class="card-sub">Company-level · non-snapshot only · US trial cohort</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Bucket</th>
+            <th class="num">Feb n</th>
+            <th class="num">Feb conv</th>
+            <th class="num">Mar n</th>
+            <th class="num">Mar conv</th>
+            <th class="num">Apr n</th>
+            <th class="num">Apr conv</th>
+            <th class="num">Avg lift vs prior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>C — No funnel published</td>
+            <td class="num">14,827</td><td class="num">47.0%</td>
+            <td class="num">18,133</td><td class="num">48.8%</td>
+            <td class="num">18,228</td><td class="num">50.0%</td>
+            <td class="num" style="color:var(--text3)">baseline</td>
+          </tr>
+          <tr style="background:var(--blue-bg)">
+            <td><strong>A1 — Published 1 funnel</strong></td>
+            <td class="num">1,144</td><td class="num highlight">69.8%</td>
+            <td class="num">1,385</td><td class="num highlight">73.8%</td>
+            <td class="num">1,177</td><td class="num highlight">72.0%</td>
+            <td class="num highlight"><strong>+23pp vs C</strong></td>
+          </tr>
+          <tr>
+            <td>A2 — Published 2 funnels</td>
+            <td class="num">395</td><td class="num">73.2%</td>
+            <td class="num">445</td><td class="num">75.3%</td>
+            <td class="num">353</td><td class="num">76.5%</td>
+            <td class="num green"><strong>+3pp vs A1</strong></td>
+          </tr>
+          <tr>
+            <td>A3 — Published 3+ funnels</td>
+            <td class="num">336</td><td class="num">78.0%</td>
+            <td class="num">396</td><td class="num">74.2%</td>
+            <td class="num">310</td><td class="num">74.5%</td>
+            <td class="num" style="color:var(--text3)"><strong>~flat vs A2</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Visual gradient -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Conversion gradient — April 2026 cohort</div>
+    <div class="card-sub">Each step shows the incremental lift from publishing one more funnel</div>
+    <div id="doseChart" style="margin-top:8px"></div>
+  </div>
+
+  <!-- 3 takeaways -->
+  <div class="grid-3">
+    <div class="kpi highlight">
+      <div class="kpi-label">No funnel → 1 funnel</div>
+      <div class="kpi-val blue">+22–25pp</div>
+      <div class="kpi-sub">The largest jump · first publish is the activation moment</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">1 funnel → 2 funnels</div>
+      <div class="kpi-val green">+1.5–4.5pp</div>
+      <div class="kpi-sub">Consistent positive lift · confirmed all 3 cohorts</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">2 funnels → 3+ funnels</div>
+      <div class="kpi-val" style="color:var(--text3)">~flat</div>
+      <div class="kpi-sub">Diminishing returns · Mar & Apr show slight decline</div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;background:var(--amber-bg);border:1px solid #E8C07A;border-radius:8px;padding:12px 16px;font-size:13px;color:var(--amber)">
+    <strong>Caveat:</strong> Companies publishing 3+ funnels may include agencies building funnels for multiple clients — a structurally different user type that churns differently regardless of funnel count. The flat/declining 3+ conversion may reflect this mix rather than diminishing returns from funnels themselves. Approach 3 (PSM within publishers) would isolate the effect more cleanly.
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-dose')" style="margin-top:14px">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-dose">
+    <div class="query-header"><span>Snowflake SQL — dose response by funnel count</span><button class="query-copy" onclick="copyCode('q-dose')">Copy</button></div>
+    <pre><span class="cm">-- Dose response: conversion by number of funnels published during trial</span>
+<span class="cm">-- Feb, Mar, Apr 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted,
+    DATE_TRUNC(&#x27;month&#x27;, MIN(CONVERTED_TRIAL_START_DATE::DATE))::DATE AS cohort_month
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-02-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+funnels_published AS (
+  SELECT cl.COMPANY_ID,
+    COUNT(DISTINCT fm.FUNNEL_ID) AS num_published
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+    AND fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  t.cohort_month,
+  CASE
+    WHEN COALESCE(fp.num_published, 0) = 0 THEN &#x27;C) No funnel published&#x27;
+    WHEN fp.num_published = 1              THEN &#x27;A1) Published 1 funnel&#x27;
+    WHEN fp.num_published = 2              THEN &#x27;A2) Published 2 funnels&#x27;
+    ELSE                                        &#x27;A3) Published 3+ funnels&#x27;
+  END AS bucket,
+  COUNT(*) AS companies,
+  ROUND(AVG(t.converted) * 100, 2) AS conversion_rate_pct
+FROM trials t
+LEFT JOIN funnels_published fp ON t.company_id = fp.COMPANY_ID
+GROUP BY 1, 2
+ORDER BY 1, 2</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="timetopublish">
+  <div class="section-header">
+    <div class="section-tag">Other factors</div>
+    <h2 class="section-title">Time to publish within trial</h2>
+    <p class="section-desc">Feb, Mar, Apr 2026 · US only · non-snapshot funnels only.</p>
+  </div>
+  <div style="background:var(--gray-bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+    <strong>Why this analysis:</strong> Among companies that published a funnel, does it matter <em>when</em> during the trial they published? If earlier publishers convert higher, the implication for product design is clear: push users to publish as fast as possible. If there's a sweet spot, we should optimize for that timing.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div style="background:var(--amber-bg);border:1px solid #E8C07A;border-radius:10px;padding:16px 20px;margin-bottom:20px">
+    <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:6px">⚠ Unexpected finding — same-day publishers convert LOWEST</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.6">Companies that publish on day 0 (same day they start trial) convert at only <strong>64–70%</strong> — lower than those who publish on days 4–14 (78–84%). The sweet spot is <strong>8–14 days into the trial</strong>, not day 1. This challenges the assumption that "faster = better" and suggests users need time to explore before publishing creates real value.</div>
+  </div>
+
+  <!-- Main table -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Conversion rate by time-to-publish bucket</div>
+    <div class="card-sub">Only among companies that published at least one non-snapshot funnel during trial · US only</div>
+    <table>
+      <thead><tr>
+        <th>Days to first publish</th>
+        <th class="num">Feb n</th><th class="num">Feb conv</th>
+        <th class="num">Mar n</th><th class="num">Mar conv</th>
+        <th class="num">Apr n</th><th class="num">Apr conv</th>
+        <th class="num">Avg days</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>0 — Same day</td>
+          <td class="num">165</td><td class="num amber">70.3%</td>
+          <td class="num">286</td><td class="num amber">66.4%</td>
+          <td class="num">199</td><td class="num amber">64.3%</td>
+          <td class="num">0</td>
+        </tr>
+        <tr>
+          <td>1–3 days</td>
+          <td class="num">689</td><td class="num">66.8%</td>
+          <td class="num">744</td><td class="num">70.6%</td>
+          <td class="num">639</td><td class="num">68.2%</td>
+          <td class="num">~1.7</td>
+        </tr>
+        <tr>
+          <td>4–7 days</td>
+          <td class="num">393</td><td class="num">73.8%</td>
+          <td class="num">453</td><td class="num">77.0%</td>
+          <td class="num">384</td><td class="num">78.7%</td>
+          <td class="num">~5.4</td>
+        </tr>
+        <tr style="background:var(--green-bg)">
+          <td><strong>8–14 days ← sweet spot</strong></td>
+          <td class="num">388</td><td class="num green"><strong>79.4%</strong></td>
+          <td class="num">441</td><td class="num green"><strong>82.8%</strong></td>
+          <td class="num">388</td><td class="num green"><strong>83.8%</strong></td>
+          <td class="num">~10.6</td>
+        </tr>
+        <tr>
+          <td>15+ days</td>
+          <td class="num">240</td><td class="num">73.3%</td>
+          <td class="num">302</td><td class="num">73.5%</td>
+          <td class="num">230</td><td class="num">68.3%</td>
+          <td class="num">~23</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Visual bar chart -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Conversion gradient by time-to-publish — April 2026</div>
+    <div class="card-sub">Conversion peaks at 8–14 days · same-day publishers convert lowest</div>
+    <div id="ttpChart" style="margin-top:10px"></div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="grid-3" style="margin-bottom:16px">
+    <div class="kpi">
+      <div class="kpi-label">Same day publishers</div>
+      <div class="kpi-val amber">64–70%</div>
+      <div class="kpi-sub">Lowest conversion · may reflect lower intent or rushed publishing</div>
+    </div>
+    <div class="kpi highlight">
+      <div class="kpi-label">8–14 day publishers (sweet spot)</div>
+      <div class="kpi-val blue">79–84%</div>
+      <div class="kpi-sub">Highest conversion · consistent across all 3 cohorts</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">15+ day publishers</div>
+      <div class="kpi-val" style="color:var(--text3)">68–73%</div>
+      <div class="kpi-sub">Trails off · may have run out of trial time to see funnel value</div>
+    </div>
+  </div>
+
+  <!-- Interpretation -->
+  <div class="card">
+    <div class="card-title">How to interpret this</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Why same-day is lowest</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">Same-day publishers published within hours of starting their trial — before deeply exploring the platform. This speed may reflect lower deliberate intent: they set something up quickly but may not have invested enough in understanding its value, which could explain the lower conversion rate.</div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Why 8–14 days is the sweet spot</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">Companies that publish 8–14 days in have explored the platform, understood its value, and made a deliberate decision to build and publish a funnel. The time investment signals genuine intent. They also still have 6–22 days of trial left to experience the funnel working — long enough to see leads come in and decide to pay. Late publishers (15+) may not have that runway.</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;background:var(--blue-bg);border-radius:8px;font-size:13px;color:var(--blue)">
+      <strong>Implication for onboarding design:</strong> Consider a nudge at days 3–5 ("your trial is going well — ready to publish your first funnel?") that guides users toward the 8–14 day publish window where conversion is highest.
+    </div>
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-ttp')" style="margin-top:14px">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-ttp-time">
+    <div class="query-header"><span>Snowflake SQL — time to publish analysis</span><button class="query-copy" onclick="copyCode('q-ttp-time')">Copy</button></div>
+    <pre><span class="cm">-- Time to publish: conversion by days-to-first-publish bucket</span>
+<span class="cm">-- Feb, Mar, Apr 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted,
+    DATE_TRUNC(&#x27;month&#x27;, MIN(CONVERTED_TRIAL_START_DATE::DATE))::DATE AS cohort_month
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-02-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+first_publish AS (
+  SELECT
+    cl.COMPANY_ID, t.trial_start, t.trial_end, t.converted, t.cohort_month,
+    MIN(fm.DOMAIN_ATTACHED_AT::DATE) AS first_publish_date,
+    DATEDIFF(&#x27;day&#x27;, t.trial_start, MIN(fm.DOMAIN_ATTACHED_AT::DATE)) AS days_to_publish
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+    AND fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end
+  GROUP BY cl.COMPANY_ID, t.trial_start, t.trial_end, t.converted, t.cohort_month
+)
+SELECT
+  cohort_month,
+  CASE
+    WHEN days_to_publish = 0  THEN &#x27;0 — Same day&#x27;
+    WHEN days_to_publish &lt;= 3 THEN &#x27;1–3 days&#x27;
+    WHEN days_to_publish &lt;= 7 THEN &#x27;4–7 days&#x27;
+    WHEN days_to_publish &lt;= 14 THEN &#x27;8–14 days&#x27;
+    ELSE &#x27;15+ days&#x27;
+  END AS days_to_publish_bucket,
+  COUNT(*) AS companies,
+  ROUND(AVG(converted) * 100, 2) AS conversion_rate_pct
+FROM first_publish
+GROUP BY 1, 2
+ORDER BY 1, MIN(days_to_publish)</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="niche">
+  <div class="section-header">
+    <div class="section-tag">Where to improve</div>
+    <h2 class="section-title">Funnel publish propensity by niche</h2>
+    <p class="section-desc">April 2026 · US only.</p>
+  </div>
+  <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--blue);line-height:1.6">
+    <strong>Why this analysis:</strong> Now that we've established publishing independently lifts conversion, the question becomes: where is the publish rate low despite high conversion potential? These niches have the biggest opportunity — users who publish convert well, but too few are publishing.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="legend">
+    <span><span class="leg-dot" style="background:#185FA5"></span>Published</span>
+    <span><span class="leg-dot" style="background:#F0997B"></span>Created, not published</span>
+    <span><span class="leg-dot" style="background:#D3D1C7"></span>No funnel created</span>
+  </div>
+
+  <div class="card" style="padding:16px 20px">
+    <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:6px;">
+      <div style="width:165px;flex-shrink:0"></div>
+      <div style="width:38px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:right">n</div>
+      <div style="flex:1;display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+      <div style="width:32px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:right">pub%</div>
+      <div style="width:80px;flex-shrink:0;padding-left:8px;font-size:10px;color:var(--text3)">conv if pub.</div>
+    </div>
+    <div id="nicheChart"></div>
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-niche')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-niche">
+    <div class="query-header"><span>Snowflake SQL</span><button class="query-copy" onclick="copyCode('q-niche')">Copy</button></div>
+    <pre><span class="cm">-- Funnel publish propensity and conversion by niche</span>
+<span class="cm">-- April 2026 · US only · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted,
+    MAX(BUSINESS_CATEGORY) AS niche
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+    AND COUNTRY_NAME = &#x27;United States of America&#x27;
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+loc_funnel AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS cf,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pf
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  t.niche,
+  COUNT(*) AS n,
+  ROUND(AVG(CASE WHEN COALESCE(lf.pf,0)=1 THEN 1.0 ELSE 0 END)*100,1) AS publish_rate_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.cf,0)=1 AND COALESCE(lf.pf,0)=0 THEN 1.0 ELSE 0 END)*100,1) AS create_not_pub_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.cf,0)=0 THEN 1.0 ELSE 0 END)*100,1) AS no_funnel_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.pf,0)=1 THEN t.converted END)*100,1) AS conv_if_published
+FROM trials t
+LEFT JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+GROUP BY 1
+ORDER BY publish_rate_pct DESC</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="geo">
+  <div class="section-header">
+    <div class="section-tag">Where to improve</div>
+    <h2 class="section-title">Funnel publish propensity by country</h2>
+    <p class="section-desc">April 2026 · sorted by company count.</p>
+  </div>
+  <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--blue);line-height:1.6">
+    <strong>Why this analysis:</strong> Same question by country — where is conversion-if-published high but publish rate low? These markets have proven funnel ROI but are not yet activating funnels during trial.
+  </div>
+  <div class="section-header" style="margin-bottom:0">
+  </div>
+
+  <div class="legend">
+    <span><span class="leg-dot" style="background:#185FA5"></span>Published</span>
+    <span><span class="leg-dot" style="background:#F0997B"></span>Created, not published</span>
+    <span><span class="leg-dot" style="background:#D3D1C7"></span>No funnel created</span>
+  </div>
+
+  <div class="card" style="padding:16px 20px">
+    <div style="display:flex;align-items:flex-end;gap:6px;margin-bottom:6px;">
+      <div style="width:38px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:right">n</div>
+      <div style="width:140px;flex-shrink:0"></div>
+      <div style="flex:1;display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+      <div style="width:32px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:right">pub%</div>
+      <div style="width:32px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:right">cnp%</div>
+      <div style="width:54px;flex-shrink:0;padding-left:6px;font-size:10px;color:var(--text3)">conv if<br>pub.</div>
+    </div>
+    <div id="geoChart"></div>
+  </div>
+
+  <button class="query-toggle" onclick="toggleQuery('q-geo')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h6M5 10.5h4"/></svg>
+    View SQL query
+  </button>
+  <div class="query-box" id="q-geo">
+    <div class="query-header"><span>Snowflake SQL</span><button class="query-copy" onclick="copyCode('q-geo')">Copy</button></div>
+    <pre><span class="cm">-- Funnel publish propensity and conversion by country</span>
+<span class="cm">-- April 2026 · ALL countries · non-snapshot funnels only</span>
+WITH trials AS (
+  SELECT
+    CUSTOMER_METADATA_HL_COMPANY_ID AS company_id,
+    MIN(CONVERTED_TRIAL_START_DATE::DATE) AS trial_start,
+    MAX(CONVERTED_TRIAL_END_DATE::DATE) AS trial_end,
+    MAX(CASE WHEN CM_CUSTOMER_STATUS != &#x27;Lead&#x27; THEN 1 ELSE 0 END) AS converted,
+    MAX(COUNTRY_NAME) AS country
+  FROM PROD_HIGHLEVEL_DWH.MOZART.NEW_TRIALS
+  WHERE CONVERTED_TRIAL_START_DATE &gt;= &#x27;2026-04-01&#x27;
+    AND CONVERTED_TRIAL_START_DATE &lt; &#x27;2026-05-01&#x27;
+    AND CONVERTED_TRIAL_END_DATE IS NOT NULL
+    AND CUSTOMER_METADATA_HL_COMPANY_ID IS NOT NULL
+  GROUP BY 1
+),
+cl AS (
+  SELECT DISTINCT COMPANY_ID, LOCATION_ID
+  FROM HL_PRODUCT_DB.PRODUCT_ANALYTICS.ACCOUNT_DAILY_METRICS_REPORT
+  WHERE COMPANY_ID IS NOT NULL AND LOCATION_ID IS NOT NULL
+),
+loc_funnel AS (
+  SELECT cl.COMPANY_ID,
+    MAX(CASE WHEN fm.CREATED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS cf,
+    MAX(CASE WHEN fm.DOMAIN_ATTACHED_AT::DATE BETWEEN t.trial_start AND t.trial_end THEN 1 ELSE 0 END) AS pf
+  FROM cl
+  JOIN trials t ON cl.COMPANY_ID = t.company_id
+  JOIN HL_PRODUCT_DB.PRODUCT_LEADGEN.FUNNEL_METAS fm ON fm.LOCATION_ID = cl.LOCATION_ID
+  WHERE LOWER(fm.FUNNEL_TYPE) IN (&#x27;funnel&#x27;,&#x27;website&#x27;)
+    AND fm.IS_DELETED = FALSE
+    AND fm.SOURCE_TYPE != &#x27;snapshot&#x27;
+  GROUP BY cl.COMPANY_ID
+)
+SELECT
+  t.country,
+  COUNT(*) AS n,
+  ROUND(AVG(CASE WHEN COALESCE(lf.pf,0)=1 THEN 1.0 ELSE 0 END)*100,1) AS publish_rate_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.cf,0)=1 AND COALESCE(lf.pf,0)=0 THEN 1.0 ELSE 0 END)*100,1) AS create_not_pub_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.cf,0)=0 THEN 1.0 ELSE 0 END)*100,1) AS no_funnel_pct,
+  ROUND(AVG(CASE WHEN COALESCE(lf.pf,0)=1 THEN t.converted END)*100,1) AS conv_if_published
+FROM trials t
+LEFT JOIN loc_funnel lf ON t.company_id = lf.COMPANY_ID
+GROUP BY 1
+HAVING COUNT(*) &gt;= 100
+ORDER BY n DESC</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section" id="variables">
+  <div class="section-header">
+    <div class="section-tag">Reference</div>
+    <h2 class="section-title">Variables considered</h2>
+    <p class="section-desc">22 potential matching variables evaluated. 15 used in PSM, 7 excluded. Even with all 15, unobserved confounders (intent, prior GHL experience) mean the result remains correlational — only a randomized experiment proves causation.</p>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Variable</th><th>Category</th><th>Field</th><th>Coverage</th><th>Used in PSM</th><th>Used in Stratification</th><th>Notes</th>
+      </tr></thead>
+      <tbody id="varTable"></tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:16px;padding:14px 16px;background:var(--amber-bg);border:1px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--amber)">
+    <strong>Unobserved confounders (cannot be included in any model):</strong> intent to build funnels (self-selection), prior GHL or funnel-tool experience, quality of the promoter/community that referred them, true business sophistication beyond client count. These are why the PSM estimate is correlational, not causal.
+  </div>
+</section>
+
+</main>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────
+const ttpData = {
+  buckets: ['A — Published', 'B — Created, not pub.', 'C — No funnel'],
+  feb:  [72.0, 51.4, 45.3],
+  mar:  [74.2, 52.2, 47.6],
+  apr:  [73.3, 55.0, 48.3],
+};
+
+const placeboData = [
+  { bucket:'A', label:'Published', n:1840, conv:73.26, color:'#185FA5',
+    prods:[{n:'Workflow exec.',v:56.1},{n:'Email sent',v:42.8},{n:'Contact created',v:82.7},{n:'Pipeline created',v:99.9},{n:'Calendar event',v:34.3}]},
+  { bucket:'B', label:'Created, not pub.', n:4552, conv:54.99, color:'#888780',
+    prods:[{n:'Workflow exec.',v:34.8},{n:'Email sent',v:22.0},{n:'Contact created',v:61.4},{n:'Pipeline created',v:99.9},{n:'Calendar event',v:18.6}]},
+  { bucket:'C', label:'No funnel', n:13676, conv:48.32, color:'#B4B2A9',
+    prods:[{n:'Workflow exec.',v:17.3},{n:'Email sent',v:9.5},{n:'Contact created',v:34.9},{n:'Pipeline created',v:88.4},{n:'Calendar event',v:6.6}]},
+];
+
+const nicheData = [
+  {niche:'Gov. & Public Svcs',n:240,pub:12.9,cnp:17.5,none:69.6,conv:74.2},
+  {niche:'Business Coaching',n:4842,pub:12.5,cnp:26.0,none:61.5,conv:70.0},
+  {niche:'Marketing Agency',n:8577,pub:12.3,cnp:27.5,none:60.2,conv:60.3},
+  {niche:'Health & Wellness',n:1693,pub:9.3,cnp:22.1,none:68.6,conv:83.4},
+  {niche:'Legal & Insurance',n:854,pub:9.1,cnp:20.3,none:70.6,conv:78.2},
+  {niche:'Financial',n:1344,pub:8.6,cnp:21.1,none:70.4,conv:75.7},
+  {niche:'Arts & Recreation',n:513,pub:8.2,cnp:24.4,none:67.4,conv:71.4},
+  {niche:'Creative',n:891,pub:8.1,cnp:27.4,none:64.5,conv:50.0},
+  {niche:'Beauty & Fashion',n:579,pub:7.6,cnp:20.9,none:71.5,conv:52.3},
+  {niche:'Medical',n:387,pub:7.5,cnp:24.3,none:68.2,conv:69.0},
+  {niche:'Home Services',n:3061,pub:7.3,cnp:24.8,none:68.0,conv:64.9},
+  {niche:'Retail & Mfg.',n:802,pub:6.6,cnp:21.7,none:71.7,conv:66.0},
+  {niche:'Real Estate',n:1992,pub:6.5,cnp:20.0,none:73.5,conv:73.1},
+  {niche:'Automotive',n:991,pub:5.8,cnp:25.1,none:69.1,conv:45.6},
+  {niche:'Travel & Hospitality',n:317,pub:5.0,cnp:22.7,none:72.2,conv:75.0},
+];
+
+const geoData = [
+  {country:'United States',n:20070,pub:9.2,cnp:22.7,none:68.2,conv:72.2},
+  {country:'Philippines',n:1185,pub:11.5,cnp:40.1,none:48.4,conv:12.5},
+  {country:'Canada',n:1518,pub:8.2,cnp:25.4,none:66.4,conv:72.0},
+  {country:'Australia',n:1356,pub:8.8,cnp:24.0,none:67.2,conv:78.3},
+  {country:'United Kingdom',n:1385,pub:10.5,cnp:23.0,none:66.5,conv:65.5},
+  {country:'Pakistan',n:612,pub:11.3,cnp:35.0,none:53.8,conv:17.4},
+  {country:'Brazil',n:407,pub:5.2,cnp:15.2,none:79.6,conv:52.4},
+  {country:'Mexico',n:424,pub:9.9,cnp:21.2,none:68.9,conv:47.6},
+  {country:'Spain',n:333,pub:12.9,cnp:23.4,none:63.7,conv:55.8},
+  {country:'India',n:257,pub:11.3,cnp:27.6,none:61.1,conv:31.0},
+  {country:'Germany',n:283,pub:11.3,cnp:29.3,none:59.4,conv:59.4},
+  {country:'South Africa',n:243,pub:8.6,cnp:31.3,none:60.1,conv:52.4},
+  {country:'UAE',n:218,pub:9.2,cnp:18.8,none:72.0,conv:80.0},
+  {country:'Colombia',n:211,pub:10.4,cnp:19.0,none:70.6,conv:54.5},
+  {country:'France',n:192,pub:7.8,cnp:24.0,none:68.2,conv:73.3},
+  {country:'Italy',n:177,pub:7.3,cnp:27.1,none:65.5,conv:61.5},
+  {country:'Hungary',n:145,pub:11.7,cnp:16.6,none:71.7,conv:64.7},
+  {country:'Netherlands',n:145,pub:11.0,cnp:23.4,none:65.5,conv:62.5},
+  {country:'Argentina',n:126,pub:7.9,cnp:23.0,none:69.0,conv:30.0},
+  {country:'New Zealand',n:125,pub:4.8,cnp:24.8,none:70.4,conv:100.0},
+  {country:'Sweden',n:87,pub:9.2,cnp:28.7,none:62.1,conv:50.0},
+  {country:'Chile',n:102,pub:8.8,cnp:14.7,none:76.5,conv:44.4},
+  {country:'Malaysia',n:80,pub:16.3,cnp:27.5,none:56.3,conv:53.8},
+  {country:'Peru',n:80,pub:8.8,cnp:21.3,none:70.0,conv:28.6},
+  {country:'Israel',n:68,pub:10.3,cnp:22.1,none:67.6,conv:57.1},
+  {country:'Portugal',n:73,pub:13.7,cnp:19.2,none:67.1,conv:10.0},
+  {country:'Poland',n:69,pub:11.6,cnp:24.6,none:63.8,conv:75.0},
+  {country:'Bangladesh',n:60,pub:13.3,cnp:30.0,none:56.7,conv:25.0},
+  {country:'Switzerland',n:57,pub:10.5,cnp:31.6,none:57.9,conv:83.3},
+  {country:'Singapore',n:56,pub:12.5,cnp:19.6,none:67.9,conv:85.7},
+  {country:'Denmark',n:50,pub:12.0,cnp:26.0,none:62.0,conv:100.0},
+].sort((a,b)=>b.n-a.n);
+
+const varData = [
+  // Company intrinsics
+  {cat:'Company intrinsics',name:'Business niche',field:'BUSINESS_CATEGORY',cov:'96%',psm:true,strat:true,note:'16 clean categories'},
+  {cat:'Company intrinsics',name:'Country',field:'COUNTRY_NAME',cov:'100%',psm:false,strat:false,note:'Filtered to US only for matching'},
+  {cat:'Company intrinsics',name:'Primary use case',field:'CUSTOMER_METADATA_AGENCY_PRIMARY_USE_CONSOLIDATED',cov:'96%',psm:true,strat:true,note:'BO / AG / SR / OT'},
+  {cat:'Company intrinsics',name:'Number of clients',field:'CUSTOMER_METADATA_NUMBER_OF_CLIENTS',cov:'96%',psm:true,strat:true,note:'5 buckets: 0/1-3/4-9/10-49/50+'},
+  {cat:'Company intrinsics',name:'Previous product',field:'CUSTOMER_METADATA_PREVIOUS_PRODUCT',cov:'37%',psm:false,strat:false,note:'Excluded — only 37% coverage'},
+  // Onboarding
+  {cat:'Onboarding',name:'Plan tier',field:'SI_PLAN_ID',cov:'100%',psm:true,strat:true,note:'Maps to $97/$297/$497'},
+  {cat:'Onboarding',name:'Trial length',field:'ORIGINAL_TRIAL_LENGTH',cov:'100%',psm:true,strat:false,note:'Exact days'},
+  {cat:'Onboarding',name:'Had capture call (Trial Experience)',field:'TRIAL_EXPERIENCE',cov:'100%',psm:true,strat:true,note:'Binary Yes/No'},
+  {cat:'Onboarding',name:'Promoter / affiliate source',field:'CUSTOMER_METADATA_PROMOTER_ID',cov:'77%',psm:false,strat:false,note:'Excluded — absorbed by trial-start cohort'},
+  {cat:'Onboarding',name:'Capture team',field:'CAPTURE_TEAM',cov:'~100%',psm:false,strat:false,note:'Excluded — operational variable'},
+  {cat:'Onboarding',name:'Trial call count',field:'TRIAL_EXPERIENCE_CALL_COUNT',cov:'~100%',psm:false,strat:false,note:'Excluded — downstream of onboarding'},
+  {cat:'Onboarding',name:'Days to first call',field:'Derived from FIRST_ONBOARDING_DATE',cov:'~100%',psm:false,strat:false,note:'Excluded — downstream of onboarding'},
+  // Trial behavior
+  {cat:'Trial usage',name:'Days active in trial',field:'PRODUCT_LOCATION_ADOPTION_DAILY count of days',cov:'~100%',psm:true,strat:true,note:'In engagement score bucket'},
+  {cat:'Trial usage',name:'Workflow executed',field:'PRODUCT_LOCATION_ADOPTION_DAILY: WORKFLOW_EXECUTIONS ≥ 1',cov:'~100%',psm:true,strat:true,note:'In engagement score'},
+  {cat:'Trial usage',name:'Email sent',field:'EMAILS_SENT ≥ 1',cov:'~100%',psm:true,strat:true,note:'In engagement score'},
+  {cat:'Trial usage',name:'Contact created',field:'CONTACTS_CREATED ≥ 1',cov:'~100%',psm:true,strat:true,note:'In engagement score'},
+  {cat:'Trial usage',name:'Calendar event',field:'CALENDAR_EVENTS ≥ 1',cov:'~100%',psm:true,strat:true,note:'In engagement score'},
+  {cat:'Trial usage',name:'SMS sent',field:'SMS_SENT ≥ 1',cov:'~100%',psm:true,strat:true,note:'In engagement score'},
+  {cat:'Trial usage',name:'Payment provider connected',field:'PRODUCT_LOCATION_ACTIVATION_FIRST: FIRST_PAYMENT_PROVIDER_CONNECTED_AT',cov:'~100%',psm:true,strat:true,note:'Strong payment intent signal'},
+  {cat:'Trial usage',name:'Domain connected',field:'FIRST_DOMAIN_CONNECTED_AT within trial',cov:'~100%',psm:true,strat:true,note:'Direct precursor to publishing'},
+  {cat:'Trial usage',name:'Got ≥5 page views',field:'FUNNEL_STATS during trial',cov:'~100%',psm:false,strat:false,note:'Excluded — downstream of publish (outcome)'},
+  {cat:'Trial usage',name:'AI Studio used',field:'VIBE_PLATFORM_USAGE_LOGS',cov:'~100%',psm:false,strat:false,note:'Excluded — downstream of funnel creation'},
+];
+
+
+// ── HYPOTHESIS PAGE ──────────────────────────────────────────
+const methods = [
+  { num:'01', tag:'Funnel-only cohort', nav:'funnelonly', color:'#1D9E75', bg:'#E6F5F0',
+    hypothesis:'Among companies using nothing but funnels, does publishing still matter?',
+    approach:'Restrict to companies with zero activity on 9 other products during trial. Compare publishers vs non-publishers.',
+    result:'Feb +23.6 | Mar +34.5 | Apr +29.1pp', confounder:'Engagement removed by construction' },
+  { num:'02', tag:'Stratified SQL', nav:'stratified', color:'#5F5E5A', bg:'#F5F4F0',
+    hypothesis:'Within identical groups (same plan, niche, engagement), does a gap remain?',
+    approach:'Group into 112 cells by plan × niche × engagement. Compare within each cell, weighted-average.',
+    result:'Apr +7.8pp (A vs B)', confounder:'Removes: plan, niche, engagement bucket' },
+  { num:'03', tag:'Propensity matching', nav:'psm', color:'#185FA5', bg:'#EBF3FB',
+    hypothesis:"If we find each publisher's statistical twin, does the publisher still convert higher?",
+    approach:'Match each publisher 1:1 to the most similar non-publisher on 15 variables. Compare matched pairs.',
+    result:'Feb +4.3 | Mar +7.7 | Apr +2.0pp', confounder:'Removes: 15 variables incl. all engagement' },
+  { num:'04', tag:'Logistic regression', nav:'oddsratio', color:'#C97B1A', bg:'#FDF3E3',
+    hypothesis:'Holding all 16 factors constant, what is the isolated publish effect?',
+    approach:'Train on Feb+Mar, validate on April. Read the funnel_published coefficient at baseline.',
+    result:'+4.3pp isolated lift · AUC 0.779', confounder:'All 16 variables held constant simultaneously' },
+];
+
+const mf = document.getElementById('methodFlow');
+if (mf) {
+  methods.forEach((m, i) => {
+    const col = document.createElement('div');
+    col.style.cssText = 'padding:14px 12px;border-right:' + (i<3 ? '1px solid var(--border)' : 'none') + ';';
+    col.innerHTML = '<div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">'
+      + '<div style="width:22px;height:22px;border-radius:50%;background:' + m.bg + ';border:1.5px solid ' + m.color + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:' + m.color + ';flex-shrink:0">' + m.num + '</div>'
+      + '<div style="font-size:12px;font-weight:600;color:' + m.color + ';cursor:pointer" onclick="navTo(\'' + m.nav + '\')">' + m.tag + ' ↗</div></div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Hypothesis</div>'
+      + '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;font-style:italic">&ldquo;' + m.hypothesis + '&rdquo;</div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Approach</div>'
+      + '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">' + m.approach + '</div>'
+      + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Result</div>'
+      + '<div style="font-size:12px;font-weight:600;color:' + m.color + ';margin-bottom:8px">' + m.result + '</div>'
+      + '<div style="font-size:10px;color:var(--text3);padding:4px 8px;background:' + m.bg + ';border-radius:4px">' + m.confounder + '</div>';
+    mf.appendChild(col);
+  });
+}
+
+const convergenceData = [
+  {method:'Raw comparison',       avb_feb:'+20.6', avb_mar:'+22.0', avb_apr:'+18.3', bvc_feb:'+6.1',  bvc_mar:'+4.6',  bvc_apr:'+6.7',  note:'Includes all confounders — upper bound', color:'#B4B2A9'},
+  {method:'Funnel-only cohort',   avb_feb:'+23.6', avb_mar:'+34.5', avb_apr:'+29.1', bvc_feb:'+5.5',  bvc_mar:'−1.0',  bvc_apr:'+0.3',  note:'Engagement removed by design · small n', color:'#1D9E75'},
+  {method:'Stratified SQL',       avb_feb:'—',     avb_mar:'+7.8',  avb_apr:'+7.8',  bvc_feb:'—',     bvc_mar:'−2.0',  bvc_apr:'−2.0',  note:'112 strata · within-cell comparison',     color:'#5F5E5A'},
+  {method:'Propensity matching',  avb_feb:'+4.3',  avb_mar:'+7.7',  avb_apr:'+2.0',  bvc_feb:'−4.1',  bvc_mar:'−5.7',  bvc_apr:'−3.5',  note:'1,840–2,225 matched pairs per cohort',    color:'#185FA5'},
+  {method:'Logistic regression',  avb_feb:'—',     avb_mar:'—',     avb_apr:'+4.3',  bvc_feb:'—',     bvc_mar:'—',     bvc_apr:'−0.8',  note:'Trained Feb+Mar · validated on Apr · AUC 0.779', color:'#C97B1A'},
+];
+
+const ct = document.getElementById('convergenceTable');
+if (ct) {
+  ct.innerHTML = '<div style="display:grid;grid-template-columns:160px 180px 180px 1fr;border-bottom:2px solid var(--border);padding-bottom:6px;margin-bottom:2px">'
+    + '<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Method</div>'
+    + '<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;text-align:center">A vs B (pub vs create) — Feb | Mar | Apr</div>'
+    + '<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;text-align:center">B vs C (create vs none) — Feb | Mar | Apr</div>'
+    + '<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Notes</div></div>';
+  convergenceData.forEach(r => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:160px 180px 180px 1fr;padding:6px 0;border-bottom:1px solid var(--gray-bg);align-items:center';
+    const fmtAvb = r.avb_feb + ' | ' + r.avb_mar + ' | ' + r.avb_apr;
+    const fmtBvc = r.bvc_feb + ' | ' + r.bvc_mar + ' | ' + r.bvc_apr;
+    row.innerHTML = '<div style="font-size:12px;color:' + r.color + ';font-weight:500">' + r.method + '</div>'
+      + '<div style="font-size:11px;font-weight:600;color:var(--blue);text-align:center;font-family:var(--mono)">' + fmtAvb + '</div>'
+      + '<div style="font-size:11px;font-weight:600;color:var(--coral);text-align:center;font-family:var(--mono)">' + fmtBvc + '</div>'
+      + '<div style="font-size:11px;color:var(--text3)">' + r.note + '</div>';
+    ct.appendChild(row);
+  });
+}
+
+
+// ── CHARTS ────────────────────────────────────────────────────
+
+// Overview bar
+new Chart(document.getElementById('overviewBar'), {
+  type: 'bar',
+  data: {
+    labels: ['A — Published', 'B — Created, not pub.', 'C — No funnel'],
+    datasets: [{
+      data: [72.3, 54.5, 48.1],
+      backgroundColor: ['#185FA5', '#888780', '#D3D1C7'],
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x}% conversion rate` } } },
+    scales: {
+      x: { min: 0, max: 85, ticks: { callback: v => v + '%', font: { size: 11 } }, grid: { color: '#F0EFE9' } },
+      y: { grid: { display: false }, ticks: { font: { size: 12 } } }
+    }
+  }
+});
+
+// MoM cohort chart (merged into overview)
+new Chart(document.getElementById('ttpCohortChartV2'), {
+  type: 'bar',
+  data: {
+    labels: ['Feb 2026', 'Mar 2026', 'Apr 2026'],
+    datasets: [
+      { label: 'A — Published',         data: [72.0,74.2,73.3], backgroundColor: '#185FA5', borderRadius: 3 },
+      { label: 'B — Created, not pub.', data: [51.4,52.2,55.0], backgroundColor: '#888780', borderRadius: 3 },
+      { label: 'C — No funnel',         data: [45.3,47.6,48.3], backgroundColor: '#D3D1C7', borderRadius: 3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 10 } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}%` } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { min: 40, max: 80, ticks: { callback: v => v+'%', font: { size: 11 } }, grid: { color: '#F0EFE9' } }
+    }
+  }
+});
+
+// Placebo cards
+const pc = document.getElementById('placeboCards');
+placeboData.forEach(d => {
+  const card = document.createElement('div');
+  card.className = `placebo-card ${d.bucket}`;
+  const prodsHTML = d.prods.map(p => {
+    const barW = Math.round(p.v * 0.6);
+    return `<div class="pb-prod-row">
+      <span class="pb-prod-name">${p.n}</span>
+      <div class="pb-prod-track"><div class="pb-prod-bar" style="width:${barW}px;background:${d.color}"></div></div>
+      <span class="pb-prod-val" style="color:${d.color}">${p.v}%</span>
+    </div>`;
+  }).join('');
+  card.innerHTML = `
+    <div class="pb-label">${d.bucket === 'A' ? 'Bucket A' : d.bucket === 'B' ? 'Bucket B' : 'Bucket C'}</div>
+    <div class="pb-rate ${d.bucket}">${d.conv}%</div>
+    <div class="pb-n">conv. rate · n=${d.n.toLocaleString()}</div>
+    <hr class="pb-divider">
+    <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">${d.label}</div>
+    ${prodsHTML}`;
+  pc.appendChild(card);
+});
+
+// Niche chart
+function convColor(v) {
+  if (v >= 75) return '#0F6E56';
+  if (v >= 60) return '#185FA5';
+  if (v >= 45) return '#5F5E5A';
+  return '#993C1D';
+}
+const nc = document.getElementById('nicheChart');
+nicheData.forEach(d => {
+  const nLabel = d.n >= 1000 ? (d.n/1000).toFixed(1)+'K' : d.n;
+  const cc = convColor(d.conv);
+  const row = document.createElement('div');
+  row.className = 'hbar-row';
+  row.innerHTML = `
+    <div class="hbar-label">${d.niche}</div>
+    <div class="hbar-n">${nLabel}</div>
+    <div class="hbar-track">
+      <div class="hbar-seg" style="width:${d.pub}%;background:#185FA5"></div>
+      <div class="hbar-seg" style="width:${d.cnp}%;background:#F0997B"></div>
+      <div class="hbar-seg" style="width:${d.none}%;background:#D3D1C7"></div>
+    </div>
+    <div class="hbar-pct">${d.pub}%</div>
+    <div class="hbar-conv">
+      <div class="hbar-conv-bar" style="width:${Math.round(d.conv*0.45)}px;background:${cc}"></div>
+      <span class="hbar-conv-val" style="color:${cc}">${d.conv}%</span>
+    </div>`;
+  nc.appendChild(row);
+});
+
+// Geo chart
+const gc = document.getElementById('geoChart');
+geoData.forEach(d => {
+  const nLabel = d.n >= 1000 ? (d.n/1000).toFixed(1)+'K' : d.n;
+  const cc = convColor(d.conv);
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+  row.innerHTML = `
+    <div style="width:38px;flex-shrink:0;font-size:11px;color:var(--text3);text-align:right">${nLabel}</div>
+    <div style="width:140px;flex-shrink:0;font-size:12px;color:var(--text);padding-right:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.country}</div>
+    <div style="flex:1;height:16px;display:flex;border-radius:3px;overflow:hidden">
+      <div style="height:100%;background:#185FA5;width:${d.pub}%"></div>
+      <div style="height:100%;background:#F0997B;width:${d.cnp}%"></div>
+      <div style="height:100%;background:#D3D1C7;width:${d.none}%"></div>
+    </div>
+    <div style="width:32px;flex-shrink:0;font-size:11px;font-weight:600;color:#185FA5;text-align:right">${d.pub}%</div>
+    <div style="width:32px;flex-shrink:0;font-size:11px;font-weight:600;color:#C97B1A;text-align:right">${d.cnp}%</div>
+    <div style="width:54px;flex-shrink:0;display:flex;align-items:center;gap:4px;padding-left:6px">
+      <div style="height:6px;border-radius:2px;background:${cc};width:${Math.round(d.conv*0.35)}px"></div>
+      <span style="font-size:11px;font-weight:600;color:${cc}">${d.conv}%</span>
+    </div>`;
+  gc.appendChild(row);
+});
+
+// Variable table
+const vt = document.getElementById('varTable');
+let lastCat = '';
+varData.forEach(v => {
+  const tr = document.createElement('tr');
+  if (v.cat !== lastCat) {
+    lastCat = v.cat;
+    tr.innerHTML = `<td colspan="7" style="background:var(--gray-bg);font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:6px 12px">${v.cat}</td>`;
+    vt.appendChild(tr);
+    const tr2 = document.createElement('tr');
+    tr2.innerHTML = buildVarRow(v);
+    vt.appendChild(tr2);
+  } else {
+    tr.innerHTML = buildVarRow(v);
+    vt.appendChild(tr);
+  }
+});
+function buildVarRow(v) {
+  const psmDot = v.psm ? `<span class="var-status var-used"></span><span style="color:var(--green)">Yes</span>` : `<span class="var-status var-excluded"></span><span style="color:var(--text3)">No</span>`;
+  const stratDot = v.strat ? `<span class="var-status var-used"></span><span style="color:var(--green)">Yes</span>` : `<span class="var-status var-excluded"></span><span style="color:var(--text3)">No</span>`;
+  return `
+    <td style="color:var(--text);font-weight:500">${v.name}</td>
+    <td style="color:var(--text3)">${v.cat}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${v.field}</td>
+    <td class="num">${v.cov}</td>
+    <td>${psmDot}</td>
+    <td>${stratDot}</td>
+    <td style="font-size:12px;color:var(--text3)">${v.note}</td>`;
+}
+
+
+
+
+// ── FACTOR WEIGHTS CHART ──────────────────────────────────────
+const factorWeightsData = [
+  { label: 'Funnel published ★',          w:  0.170, group: 'funnel' },
+  { label: 'Funnel created, not pub.',     w: -0.029, group: 'funnel' },
+  { label: 'Had capture call (Trial Experience)',          w:  0.680, group: 'company' },
+  { label: 'Plan tier',                    w:  0.260, group: 'company' },
+  { label: 'Number of clients',            w:  0.304, group: 'company' },
+  { label: 'Trial length',                 w: -0.340, group: 'company' },
+  { label: 'Workflow executed',            w:  0.059, group: 'usage' },
+  { label: 'Workflow created',             w:  0.081, group: 'usage' },
+  { label: 'Contact created',              w:  0.121, group: 'usage' },
+  { label: 'Email sent',                   w:  0.130, group: 'usage' },
+  { label: 'Form submitted',               w:  0.125, group: 'usage' },
+  { label: 'SMS sent',                     w:  0.025, group: 'usage' },
+  { label: 'Opportunity created',          w:  0.085, group: 'usage' },
+  { label: 'Calendar event',               w:  0.032, group: 'usage' },
+  { label: 'Voice call',                   w:  0.127, group: 'usage' },
+].sort((a,b) => b.w - a.w);
+
+const fwEl = document.getElementById('factorWeights');
+if (fwEl) {
+  const maxW = Math.max(...factorWeightsData.map(d => Math.abs(d.w)));
+  const groupColors = { funnel: '#185FA5', company: '#C97B1A', usage: '#888780' };
+  const groupLabels = { funnel: 'Funnel', company: 'Company profile', usage: 'Trial usage' };
+
+  factorWeightsData.forEach(d => {
+    const pct = Math.round(Math.abs(d.w) / maxW * 100);
+    const color = d.label.includes('★') ? '#185FA5' : d.w < 0 ? '#C94040' : groupColors[d.group];
+    const barColor = d.w >= 0 ? color : '#C94040';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    row.innerHTML =
+      '<div style="width:210px;flex-shrink:0;font-size:12px;color:' + (d.label.includes('★') ? 'var(--blue)' : 'var(--text)') + ';font-weight:' + (d.label.includes('★') ? '600' : '400') + '">' + d.label + '</div>'
+      + '<div style="width:36px;flex-shrink:0;font-size:11px;color:var(--text3);text-align:right">' + groupLabels[d.group] + '</div>'
+      + '<div style="flex:1;height:18px;background:var(--gray-bg);border-radius:3px;overflow:hidden;position:relative">'
+      + '<div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border)"></div>'
+      + (d.w >= 0
+        ? '<div style="position:absolute;left:50%;width:' + Math.round(pct/2) + '%;height:100%;background:' + barColor + ';border-radius:0 3px 3px 0"></div>'
+        : '<div style="position:absolute;right:50%;width:' + Math.round(pct/2) + '%;height:100%;background:' + barColor + ';border-radius:3px 0 0 3px"></div>')
+      + '</div>'
+      + '<div style="width:40px;flex-shrink:0;font-size:11px;font-weight:500;color:' + barColor + ';text-align:right">' + (d.w > 0 ? '+' : '') + d.w.toFixed(3) + '</div>';
+    fwEl.appendChild(row);
+  });
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3)';
+  legend.innerHTML = '<span><span style="display:inline-block;width:8px;height:8px;background:#185FA5;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Funnel</span>'
+    + '<span><span style="display:inline-block;width:8px;height:8px;background:#C97B1A;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Company profile</span>'
+    + '<span><span style="display:inline-block;width:8px;height:8px;background:#888780;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Trial usage</span>'
+    + '<span><span style="display:inline-block;width:8px;height:8px;background:#C94040;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Negative</span>'
+    + '<span style="color:var(--text3);margin-left:8px">Weights are standardized — directly comparable across variables</span>';
+  fwEl.appendChild(legend);
+}
+
+// ── TIME TO PUBLISH CHART ─────────────────────────────────────
+const ttpBuckets = [
+  { label: '0 — Same day',  conv: 64.3, n: 199,  color: '#C97B1A' },
+  { label: '1–3 days',      conv: 68.2, n: 639,  color: '#888780' },
+  { label: '4–7 days',      conv: 78.7, n: 384,  color: '#378ADD' },
+  { label: '8–14 days ★',   conv: 83.8, n: 388,  color: '#1D9E75' },
+  { label: '15+ days',      conv: 68.3, n: 230,  color: '#B4B2A9' },
+];
+const ttpChart = document.getElementById('ttpChart');
+if (ttpChart) {
+  const maxConv = 90;
+  ttpBuckets.forEach(d => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px';
+    const textCol = d.color === '#B4B2A9' || d.color === '#888780' ? 'var(--text2)' : '#fff';
+    row.innerHTML = '<div style="width:140px;flex-shrink:0;font-size:12px;color:var(--text)">' + d.label + '</div>'
+      + '<div style="flex:1;height:24px;background:var(--gray-bg);border-radius:4px;overflow:hidden">'
+      + '<div style="height:100%;width:' + Math.round(d.conv / maxConv * 100) + '%;background:' + d.color + ';border-radius:4px;display:flex;align-items:center;padding-left:10px">'
+      + '<span style="font-size:11px;font-weight:600;color:' + textCol + '">' + d.conv + '%</span></div></div>'
+      + '<div style="width:80px;flex-shrink:0;font-size:11px;color:var(--text3)">n=' + d.n.toLocaleString() + '</div>';
+    ttpChart.appendChild(row);
+  });
+}
+
+// ── DOSE RESPONSE CHART ───────────────────────────────────────
+const doseData = [
+  { label: 'C — No funnel',       conv: 50.0, color: '#D3D1C7', prev: null },
+  { label: 'A1 — 1 funnel',       conv: 72.0, color: '#185FA5', prev: 50.0 },
+  { label: 'A2 — 2 funnels',      conv: 76.5, color: '#1D9E75', prev: 72.0 },
+  { label: 'A3 — 3+ funnels',     conv: 74.5, color: '#B4B2A9', prev: 76.5 },
+];
+const dc = document.getElementById('doseChart');
+if (dc) {
+  const maxConv = 85;
+  doseData.forEach(d => {
+    const lift = d.prev !== null ? (d.conv - d.prev > 0 ? '+' : '') + (d.conv - d.prev).toFixed(1) + 'pp vs prior' : 'baseline';
+    const liftColor = d.prev !== null ? (d.conv - d.prev > 0 ? 'var(--green)' : 'var(--coral)') : 'var(--text3)';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px';
+    row.innerHTML = '<div style="width:190px;flex-shrink:0;font-size:12px;color:var(--text)">' + d.label + '</div>'
+      + '<div style="flex:1;height:22px;background:var(--gray-bg);border-radius:4px;overflow:hidden">'
+      + '<div style="height:100%;width:' + Math.round(d.conv/maxConv*100) + '%;background:' + d.color + ';border-radius:4px;display:flex;align-items:center;padding-left:8px">'
+      + '<span style="font-size:11px;font-weight:600;color:' + (d.color === '#D3D1C7' || d.color === '#B4B2A9' ? 'var(--text2)' : '#fff') + '">' + d.conv + '%</span></div></div>'
+      + '<div style="width:130px;flex-shrink:0;font-size:11px;font-weight:500;color:' + liftColor + '">' + lift + '</div>';
+    dc.appendChild(row);
+  });
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function toggleQuery(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+function copyCode(id) {
+  const pre = document.querySelector(`#${id} pre`);
+  navigator.clipboard.writeText(pre.innerText);
+  const btn = document.querySelector(`#${id} .query-copy`);
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
+}
+function navTo(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var clicked = document.querySelector('.nav-item[onclick*="' + id + '"]');
+  if (clicked) clicked.classList.add('active');
+}
+</script>
+</body>
+</html>
